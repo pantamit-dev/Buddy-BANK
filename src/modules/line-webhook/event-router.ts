@@ -163,6 +163,11 @@ export class LineEventRouter {
   }) {
     const { text, groupId, userId, replyToken } = params;
 
+    // Trigger typing indicator for recognized commands or bot mentions
+    if (userId && (text.startsWith("#") || HybridAiQueryRouter.isBotMention(text))) {
+      await this.lineClient.showLoadingAnimation(userId, 5);
+    }
+
     const flexReply = await this.commandHandler.handleCommand({
       text,
       lineGroupId: groupId,
@@ -204,7 +209,12 @@ export class LineEventRouter {
   }) {
     const { messageId, groupId: lineGroupId, userId, replyToken } = params;
 
-    // 1. Resolve Group
+    // 1. Immediately trigger LINE Loading Animation (typing indicator) for the uploader
+    if (userId) {
+      await this.lineClient.showLoadingAnimation(userId, 20);
+    }
+
+    // 2. Resolve Group
     const { data: group } = await this.supabase
       .from("groups")
       .select("id")
@@ -215,7 +225,7 @@ export class LineEventRouter {
       return { success: false, reason: "Group not registered" };
     }
 
-    // 2. Resolve or Verify Member (Strict Onboarding Gate - Goal G2)
+    // 3. Resolve or Verify Member (Strict Onboarding Gate - Goal G2)
     const member = userId
       ? await this.membershipService.getMemberByLineUserId(group.id, userId)
       : null;
@@ -237,9 +247,6 @@ export class LineEventRouter {
         reason: !member ? "MEMBER_NOT_REGISTERED" : "MEMBER_NOT_ACTIVE",
       };
     }
-
-    // 3. Immediately trigger loading animation in group chat
-    await this.lineClient.showLoadingAnimation(lineGroupId, 20);
 
     // 4. Download slip image from LINE
     const imageBuffer = await this.lineClient.getMessageContent(messageId);
@@ -333,7 +340,7 @@ export class LineEventRouter {
     const { data, source, replyToken } = params;
     const urlParams = new URLSearchParams(data);
     const action = urlParams.get("action");
-    const chatId = source.groupId || source.userId;
+    const userChatId = source.userId;
 
     // A. Handle Group Withdrawal Voting
     if (action === "vote_withdrawal") {
@@ -344,8 +351,8 @@ export class LineEventRouter {
         return { success: false, reason: "Invalid withdrawal voting payload" };
       }
 
-      if (chatId) {
-        await this.lineClient.showLoadingAnimation(chatId, 15);
+      if (userChatId) {
+        await this.lineClient.showLoadingAnimation(userChatId, 15);
       }
 
       const voterUserId = source.userId;
@@ -411,8 +418,8 @@ export class LineEventRouter {
     }
 
     // 1. Immediately trigger LINE Loading Animation
-    if (chatId) {
-      await this.lineClient.showLoadingAnimation(chatId, 20);
+    if (userChatId) {
+      await this.lineClient.showLoadingAnimation(userChatId, 20);
     }
 
     const reviewerUserId = source.userId;
