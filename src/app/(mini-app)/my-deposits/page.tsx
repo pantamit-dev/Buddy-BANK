@@ -4,17 +4,20 @@ import React, { useEffect, useState } from "react";
 import { useLiff } from "@/shared/context/liff-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { formatCurrency, formatThaiDate } from "@/lib/utils";
-import { Wallet, CheckCircle, Clock, AlertCircle, XCircle } from "lucide-react";
+import { Wallet, CheckCircle, Clock, AlertCircle, XCircle, UserCheck, CheckCircle2 } from "lucide-react";
+import { ProfileRegisterDialog } from "@/shared/components/profile-register-dialog";
 
 export default function MyDepositsPage() {
-  const { profile, groupId } = useLiff();
+  const { profile, groupId, isRegistered } = useLiff();
   const [deposits, setDeposits] = useState<any[]>([]);
   const [personalSummary, setPersonalSummary] = useState({
     total: 0,
     count: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     async function loadMyDeposits() {
@@ -92,6 +95,54 @@ export default function MyDepositsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Profile Confirmation Card */}
+      <Card className="bg-white border-slate-200 shadow-xs">
+        <CardContent className="p-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {profile?.pictureUrl ? (
+              <img
+                src={profile.pictureUrl}
+                alt={profile.displayName}
+                className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
+                {profile?.displayName?.slice(0, 1) || "U"}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-slate-800">
+                  {profile?.displayName || "LINE User"}
+                </span>
+                {isRegistered ? (
+                  <Badge variant="success" className="text-[9px] px-1.5 py-0">
+                    ยืนยันแล้ว
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 border-amber-300 bg-amber-50">
+                    รอยืนยัน
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono truncate max-w-[170px]">
+                {profile?.userId || "ID ไม่พร้อมใช้งาน"}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            variant={isRegistered ? "outline" : "default"}
+            onClick={() => setDialogOpen(true)}
+            className="text-xs h-8 px-3 font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>{isRegistered ? "แก้ไขโปรไฟล์" : "ลงทะเบียน"}</span>
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Personal Summary Card */}
       <Card className="bg-white border-slate-200 shadow-sm">
         <CardHeader className="pb-2">
@@ -146,6 +197,9 @@ export default function MyDepositsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Profile Registration Dialog */}
+      <ProfileRegisterDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

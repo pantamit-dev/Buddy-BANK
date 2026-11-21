@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,13 +10,18 @@ import {
   CheckSquare,
   Settings,
   CircleDot,
+  UserCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LiffProvider, useLiff } from "@/shared/context/liff-context";
+import { ProfileRegisterDialog } from "@/shared/components/profile-register-dialog";
+import { Button } from "@/shared/components/ui/button";
 
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { profile } = useLiff();
+  const { profile, isRegistered } = useLiff();
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
 
   const navItems = [
     { href: "/overview", label: "ภาพรวม", icon: Wallet },
@@ -42,25 +47,81 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
             </p>
           </div>
         </div>
-        {profile && (
-          <div className="flex items-center gap-2">
-            {profile.pictureUrl ? (
-              <img
-                src={profile.pictureUrl}
-                alt={profile.displayName}
-                className="w-8 h-8 rounded-full border border-slate-200 object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">
-                {profile.displayName.slice(0, 1)}
-              </div>
+
+        <div className="flex items-center gap-2">
+          {/* Register / Profile Button */}
+          <Button
+            size="sm"
+            variant={isRegistered ? "outline" : "default"}
+            onClick={() => setRegisterDialogOpen(true)}
+            className={cn(
+              "h-8 px-2.5 text-xs font-semibold gap-1.5 transition-all shadow-xs",
+              isRegistered
+                ? "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
             )}
-          </div>
-        )}
+          >
+            {isRegistered ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>ยืนยันแล้ว</span>
+              </>
+            ) : (
+              <>
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>ลงทะเบียน</span>
+              </>
+            )}
+          </Button>
+
+          {profile && (
+            <div
+              className="cursor-pointer"
+              onClick={() => setRegisterDialogOpen(true)}
+              title="คลิกเพื่อดูและยืนยันข้อมูลโปรไฟล์"
+            >
+              {profile.pictureUrl ? (
+                <img
+                  src={profile.pictureUrl}
+                  alt={profile.displayName}
+                  className="w-8 h-8 rounded-full border border-slate-200 object-cover hover:ring-2 hover:ring-emerald-400 transition-all"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold hover:ring-2 hover:ring-emerald-400 transition-all">
+                  {profile.displayName.slice(0, 1)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </header>
+
+      {/* Top Banner Alert if not registered */}
+      {!isRegistered && (
+        <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2 flex items-center justify-between text-xs text-emerald-900">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="text-sm">👋</span>
+            <span className="truncate">
+              ยินดีต้อนรับ! กรุณายืนยันข้อมูลโปรไฟล์เพื่อเริ่มใช้งาน
+            </span>
+          </div>
+          <button
+            onClick={() => setRegisterDialogOpen(true)}
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline ml-2 shrink-0"
+          >
+            กดยืนยัน
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 p-4">{children}</main>
+
+      {/* Profile Registration Dialog */}
+      <ProfileRegisterDialog
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+      />
 
       {/* Bottom Tab Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 max-w-md mx-auto">
