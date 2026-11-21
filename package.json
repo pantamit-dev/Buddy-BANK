@@ -14,7 +14,9 @@
     "test:security": "vitest run tests/security",
     "ocr:setup": "uv venv third_party/OpenThai2.1-OCR-Text-20261118/.venv --python 3.12 && uv pip install -r third_party/OpenThai2.1-OCR-Text-20261118/requirements.txt",
     "ocr:server": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe third_party/OpenThai2.1-OCR-Text-20261118/server.py",
-    "ocr:tunnel": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe scripts/start-ocr-tunnel.py"
+    "ocr:tunnel": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe scripts/start-ocr-tunnel.py",
+    "dev:all": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe scripts/start-all.py",
+    "start:all": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe scripts/start-all.py --prod"
   },
   "dependencies": {
     "@line/bot-sdk": "^9.7.0",

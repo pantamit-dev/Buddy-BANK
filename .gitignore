@@ -30,7 +30,9 @@ yarn-error.log*
 # vercel
 .vercel
 
-# typescript
+# binaries
+ngrok.exe
+*.exe
 *.tsbuildinfo
 next-env.d.ts
 
