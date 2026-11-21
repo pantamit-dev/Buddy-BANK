@@ -1,8 +1,8 @@
 # Money Pool (Bank Buddy) — Phase 1 MVP Technical Design Document
 
 * **Author:** NB-Psave / Bank Buddy Team
-* **Status:** Approved Draft
-* **Date:** 2026-11-21
+* **Status:** Completed & Unified into v.beta
+* **Date:** 2026-11-22
 * **Architecture Style:** Modular Monolith (Next.js + TypeScript + Local Supabase via Docker)
 
 ---
