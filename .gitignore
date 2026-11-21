@@ -45,3 +45,7 @@ __pycache__/
 *.pyc
 third_party/**/.venv/
 third_party/**/__pycache__/
+
+# release backups
+backups/
+*.zip
