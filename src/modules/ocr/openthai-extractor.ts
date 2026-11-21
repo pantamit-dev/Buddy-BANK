@@ -105,7 +105,7 @@ export async function extractSlipWithOpenThai(
 
       const val = res?.data?.value;
       if (val && typeof val === "string" && val.startsWith("http")) {
-        ocrUrl = val;
+        ocrUrl = val.trim();
       }
     } catch {
       // Fallback to environment variable or localhost default
@@ -116,30 +116,38 @@ export async function extractSlipWithOpenThai(
     }
   }
 
-  const timeoutMs = options?.timeoutMs || 10000;
+  // Normalize endpoint: ensure path ends with /ocr if pointing to base domain
+  if (ocrUrl && !ocrUrl.endsWith("/ocr")) {
+    ocrUrl = `${ocrUrl.replace(/\/+$/, "")}/ocr`;
+  }
 
-  // 1. Optimize image buffer with sharp (auto-orient EXIF, resize to max 1600px width/height)
+  // Increase default timeout to 12s for remote tunnels (ngrok/cloudflared)
+  const timeoutMs = options?.timeoutMs || 12000;
+
+  // 1. Optimize image buffer with sharp (auto-orient EXIF, resize to max 1400px width/height)
   let buffer = Buffer.isBuffer(imageInput) ? imageInput : Buffer.from(imageInput);
   try {
     buffer = await sharp(buffer)
       .rotate() // auto-orient based on EXIF
-      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 90 })
+      .resize({ width: 1400, height: 1400, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
       .toBuffer();
   } catch (err) {
     console.warn("[OpenThaiExtractor] Image optimization skipped or failed:", err);
   }
 
-  // 2. Try HTTP microservice first (ultra-fast ~100-300ms, model pre-warmed in memory)
+  // 2. Try HTTP microservice first (ultra-fast ~100-300ms locally, ~1.5-3s over secure tunnel)
   let ocrData: OpenThaiServerResponse | null = null;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 4000));
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     const response = await fetch(ocrUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
+        "ngrok-skip-browser-warning": "true",
+        "User-Agent": "BankBuddy-OCR/1.0",
       },
       body: new Uint8Array(buffer),
       signal: controller.signal,
@@ -147,9 +155,15 @@ export async function extractSlipWithOpenThai(
     clearTimeout(timer);
 
     if (response.ok) {
-      ocrData = (await response.json()) as OpenThaiServerResponse;
+      try {
+        ocrData = (await response.json()) as OpenThaiServerResponse;
+      } catch {
+        const text = typeof response.text === "function" ? await response.text() : "";
+        ocrData = JSON.parse(text) as OpenThaiServerResponse;
+      }
     } else {
-      console.warn(`[OpenThaiExtractor] HTTP service responded with status ${response.status}`);
+      const errorText = typeof response.text === "function" ? await response.text().catch(() => "") : "";
+      console.warn(`[OpenThaiExtractor] HTTP service responded with status ${response.status}: ${errorText.slice(0, 200)}`);
     }
   } catch (httpErr) {
     // Daemon not running or timed out, gracefully attempt CLI fallback
