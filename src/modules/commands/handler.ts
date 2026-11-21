@@ -51,23 +51,24 @@ export class CommandHandler {
       return null;
     }
 
-    // 2. Command: #ยอดรวม / #สรุป
+    // 2. Command: #ยอดรวม / #สรุป (Parallelized summary with preloaded target amount)
     if (command === "#ยอดรวม" || command === "#สรุป") {
-      const summary = await this.ledgerService.getGroupBalanceSummary(group.id);
-
-      // Count active members
-      const { count } = await this.supabase
-        .from("group_members")
-        .select("*", { count: "exact", head: true })
-        .eq("group_id", group.id)
-        .eq("status", "active");
+      const targetAmount = Number(group.target_amount || 0);
+      const [summary, membersCountRes] = await Promise.all([
+        this.ledgerService.getGroupBalanceSummary(group.id, targetAmount),
+        this.supabase
+          .from("group_members")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", group.id)
+          .eq("status", "active"),
+      ]);
 
       return createGroupBalanceFlexMessage({
         groupName: group.name,
         totalBalance: summary.totalBalance,
         targetAmount: summary.targetAmount,
         percentage: summary.percentage,
-        memberCount: count || 1,
+        memberCount: membersCountRes.count || 1,
         liffUrl,
       });
     }

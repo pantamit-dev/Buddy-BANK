@@ -18,34 +18,72 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+// In-memory client cache for instant tab navigation (30s TTL)
+const overviewCache: Record<
+  string,
+  { data: any; recentDeposits: any[]; timestamp: number }
+> = {};
+const CACHE_TTL_MS = 30_000;
+
+export function invalidateOverviewCache(groupId?: string) {
+  if (groupId) {
+    delete overviewCache[groupId];
+  } else {
+    for (const key of Object.keys(overviewCache)) {
+      delete overviewCache[key];
+    }
+  }
+}
+
 export default function OverviewPage() {
   const { groupId } = useLiff();
+  const cached = groupId ? overviewCache[groupId] : null;
+  const isCacheFresh = cached && Date.now() - cached.timestamp < CACHE_TTL_MS;
+
   const [data, setData] = useState<{
     group: any;
     balance: any;
     memberCount: number;
-  } | null>(null);
-  const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  } | null>(isCacheFresh ? cached.data : null);
+  const [recentDeposits, setRecentDeposits] = useState<any[]>(
+    isCacheFresh ? cached.recentDeposits : []
+  );
+  const [loading, setLoading] = useState(!isCacheFresh);
 
   useEffect(() => {
     async function loadOverview() {
       try {
-        setLoading(true);
-        // Fetch group details and ledger balance
-        const res = await fetch(`/api/groups?groupId=${groupId}`);
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
+        if (!isCacheFresh) {
+          setLoading(true);
         }
 
-        // Fetch recent verified deposits
-        const depRes = await fetch(
-          `/api/deposits?groupId=${groupId}&status=verified&limit=5`
-        );
+        // Parallel Fetching: Fetch group balance and recent verified deposits concurrently
+        const [groupRes, depRes] = await Promise.all([
+          fetch(`/api/groups?groupId=${groupId}`),
+          fetch(`/api/deposits?groupId=${groupId}&status=verified&limit=5`),
+        ]);
+
+        let fetchedData = data;
+        let fetchedDeposits = recentDeposits;
+
+        if (groupRes.ok) {
+          fetchedData = await groupRes.json();
+          setData(fetchedData);
+        }
+
         if (depRes.ok) {
           const depJson = await depRes.json();
-          setRecentDeposits(depJson.deposits || []);
+          fetchedDeposits = depJson.deposits || [];
+          setRecentDeposits(fetchedDeposits);
+        }
+
+        // Update memory cache
+        if (groupId) {
+          overviewCache[groupId] = {
+            data: fetchedData,
+            recentDeposits: fetchedDeposits,
+            timestamp: Date.now(),
+          };
         }
       } catch (err) {
         console.error("Failed to load overview data:", err);

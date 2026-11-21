@@ -99,49 +99,63 @@ export class LedgerService {
   }
 
   /**
-   * Queries group balance summary
+   * Queries group balance summary with parallelized queries
+   * Accepts optional preloadedTargetAmount to avoid redundant database lookups
    */
-  async getGroupBalanceSummary(groupId: string): Promise<BalanceSummary> {
-    const { data: group } = await this.supabase
-      .from("groups")
-      .select("target_amount")
-      .eq("id", groupId)
-      .single();
+  async getGroupBalanceSummary(
+    groupId: string,
+    preloadedTargetAmount?: number
+  ): Promise<BalanceSummary> {
+    const groupPromise =
+      typeof preloadedTargetAmount === "number"
+        ? Promise.resolve({ data: { target_amount: preloadedTargetAmount } })
+        : this.supabase
+            .from("groups")
+            .select("target_amount")
+            .eq("id", groupId)
+            .maybeSingle();
 
-    const { data: entries } = await this.supabase
-      .from("ledger_entries")
-      .select("entry_type, amount, member_id")
-      .eq("group_id", groupId);
+    const [groupRes, entriesRes] = await Promise.all([
+      groupPromise,
+      this.supabase
+        .from("ledger_entries")
+        .select("entry_type, amount, member_id")
+        .eq("group_id", groupId),
+    ]);
 
-    const targetAmount = Number(group?.target_amount || 0);
-    return calculateBalanceSummary(entries || [], targetAmount);
+    const targetAmount = Number(groupRes.data?.target_amount || 0);
+    return calculateBalanceSummary(entriesRes.data || [], targetAmount);
   }
 
   /**
-   * Comprehensive group balance with progress and member counts
+   * Comprehensive group balance with single parallel roundtrip
    */
   async getGroupBalance(groupId: string) {
-    const { data: group } = await this.supabase
-      .from("groups")
-      .select("name, target_amount")
-      .eq("id", groupId)
-      .maybeSingle();
+    const [groupRes, entriesRes, activeMembersRes] = await Promise.all([
+      this.supabase
+        .from("groups")
+        .select("name, target_amount")
+        .eq("id", groupId)
+        .maybeSingle(),
+      this.supabase
+        .from("ledger_entries")
+        .select("entry_type, amount, member_id")
+        .eq("group_id", groupId),
+      this.supabase
+        .from("group_members")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", groupId)
+        .eq("status", "active"),
+    ]);
 
-    const summary = await this.getGroupBalanceSummary(groupId);
+    const group = groupRes.data;
+    const entries = entriesRes.data || [];
+    const targetAmount = Number(group?.target_amount || 0);
+    const summary = calculateBalanceSummary(entries, targetAmount);
 
-    const { data: entries } = await this.supabase
-      .from("ledger_entries")
-      .select("member_id")
-      .eq("group_id", groupId)
-      .eq("entry_type", "credit");
-
-    const uniqueContributors = new Set((entries || []).map((e) => e.member_id));
-
-    const { data: allMembers } = await this.supabase
-      .from("group_members")
-      .select("id")
-      .eq("group_id", groupId)
-      .eq("status", "active");
+    const uniqueContributors = new Set(
+      entries.filter((e) => e.entry_type === "credit").map((e) => e.member_id)
+    );
 
     return {
       groupName: group?.name || "กลุ่มกองกลาง",
@@ -152,7 +166,7 @@ export class LedgerService {
       totalDeposited: summary.totalCredit,
       totalWithdrawn: summary.totalDebit,
       contributingMembersCount: uniqueContributors.size,
-      totalMembersCount: allMembers?.length || 1,
+      totalMembersCount: activeMembersRes.count || 1,
     };
   }
 

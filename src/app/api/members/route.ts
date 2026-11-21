@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/integrations/supabase/server";
 import { MembershipService } from "@/modules/membership/service";
-import { LedgerService } from "@/modules/ledger/service";
+import { calculateMemberContribution } from "@/modules/ledger/balance";
 import {
   MemberOnboardSchema,
   MemberStatusUpdateSchema,
 } from "@/shared/schemas/member.schema";
 
 const membershipService = new MembershipService();
-const ledgerService = new LedgerService();
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,20 +42,21 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    // Fetch individual contributions for each member
-    const membersWithContributions = await Promise.all(
-      (members || []).map(async (m) => {
-        const contribution = await ledgerService.getMemberContribution(
-          groupId,
-          m.id
-        );
-        return {
-          ...m,
-          contributionTotal: contribution.personalTotal,
-          sharePercentage: contribution.personalSharePercentage,
-        };
-      })
-    );
+    // Fetch all group ledger entries ONCE to eliminate N+1 queries across member roster
+    const { data: allEntries } = await supabase
+      .from("ledger_entries")
+      .select("entry_type, amount, member_id")
+      .eq("group_id", groupId);
+
+    const groupEntries = allEntries || [];
+    const membersWithContributions = (members || []).map((m) => {
+      const contribution = calculateMemberContribution(groupEntries, m.id);
+      return {
+        ...m,
+        contributionTotal: contribution.personalTotal,
+        sharePercentage: contribution.personalSharePercentage,
+      };
+    });
 
     return NextResponse.json({ members: membersWithContributions });
   } catch (error) {

@@ -47,10 +47,12 @@ export class FraudDetectionService {
     } = params;
 
     const sha256 = computeFileSha256(imageBuffer);
-    const perceptualHash = await computePerceptualHash(imageBuffer);
+
+    // Parallelize CPU-bound perceptual hash calculation and database checks concurrently
+    const phashPromise = computePerceptualHash(imageBuffer);
 
     // 1. Check duplicate SHA-256 in this group
-    const { data: shaMatch } = await this.supabase
+    const shaQueryPromise = this.supabase
       .from("deposits")
       .select("id, file_sha256")
       .eq("group_id", groupId)
@@ -58,11 +60,8 @@ export class FraudDetectionService {
       .in("status", ["pending", "processing", "verified", "needs_review"])
       .maybeSingle();
 
-    const isDuplicateSha256 = !!shaMatch;
-
-    // 2. Check duplicate perceptual hash in this group
-    let isDuplicatePhash = false;
-    const { data: recentSlips } = await this.supabase
+    // 2. Fetch recent perceptual hashes in this group
+    const recentSlipsPromise = this.supabase
       .from("deposits")
       .select("id, perceptual_hash")
       .eq("group_id", groupId)
@@ -70,6 +69,29 @@ export class FraudDetectionService {
       .in("status", ["pending", "processing", "verified", "needs_review"])
       .limit(50);
 
+    // 3. Check duplicate bank reference if present
+    const refQueryPromise =
+      bankReference && bankReference.trim().length > 0
+        ? this.supabase
+            .from("deposits")
+            .select("id")
+            .eq("group_id", groupId)
+            .eq("bank_reference", bankReference.trim())
+            .in("status", ["pending", "processing", "verified", "needs_review"])
+            .maybeSingle()
+        : Promise.resolve({ data: null });
+
+    const [perceptualHash, shaMatchRes, recentSlipsRes, refMatchRes] = await Promise.all([
+      phashPromise,
+      shaQueryPromise,
+      recentSlipsPromise,
+      refQueryPromise,
+    ]);
+
+    const isDuplicateSha256 = !!shaMatchRes.data;
+
+    let isDuplicatePhash = false;
+    const recentSlips = recentSlipsRes.data;
     if (recentSlips && recentSlips.length > 0) {
       for (const slip of recentSlips) {
         if (slip.perceptual_hash && isNearDuplicate(perceptualHash, slip.perceptual_hash)) {
@@ -79,19 +101,7 @@ export class FraudDetectionService {
       }
     }
 
-    // 3. Check duplicate bank reference if present
-    let isDuplicateBankRef = false;
-    if (bankReference && bankReference.trim().length > 0) {
-      const { data: refMatch } = await this.supabase
-        .from("deposits")
-        .select("id")
-        .eq("group_id", groupId)
-        .eq("bank_reference", bankReference.trim())
-        .in("status", ["pending", "processing", "verified", "needs_review"])
-        .maybeSingle();
-
-      isDuplicateBankRef = !!refMatch;
-    }
+    const isDuplicateBankRef = !!refMatchRes.data;
 
     // 4. Calculate Heuristic Risk Score
     const riskEval: FraudRiskEvaluationResult = calculateFraudRiskScore({

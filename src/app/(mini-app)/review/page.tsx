@@ -15,6 +15,7 @@ import {
   Receipt,
   AlertCircle,
 } from "lucide-react";
+import { invalidateOverviewCache } from "../overview/page";
 
 export default function ReviewPage() {
   const { profile, groupId } = useLiff();
@@ -67,6 +68,7 @@ export default function ReviewPage() {
       });
 
       if (res.ok) {
+        invalidateOverviewCache(groupId);
         await fetchPending();
       } else {
         const err = await res.json();

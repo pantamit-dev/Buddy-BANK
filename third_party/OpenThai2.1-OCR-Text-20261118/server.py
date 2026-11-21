@@ -24,9 +24,12 @@ from runtime.line_engine import LineOCR
 _OCR_ENGINE: LineOCR | None = None
 
 
-def get_ocr_engine(threads: int = 2) -> LineOCR:
+def get_ocr_engine(threads: int | None = None) -> LineOCR:
     global _OCR_ENGINE
     if _OCR_ENGINE is None:
+        if threads is None:
+            cpu_cores = os.cpu_count() or 4
+            threads = min(cpu_cores, 8)
         _OCR_ENGINE = LineOCR(str(MODEL_DIR), threads=threads)
     return _OCR_ENGINE
 

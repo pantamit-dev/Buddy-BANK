@@ -85,6 +85,11 @@ function resolveServerScriptPath(customPath?: string): string {
   );
 }
 
+// In-memory cache for dynamic service discovery URL to eliminate redundant DB calls
+let cachedDiscoveryUrl: string | null = null;
+let discoveryCacheExpiresAt = 0;
+const DISCOVERY_CACHE_TTL_MS = 60_000; // 60 seconds TTL
+
 /**
  * Extracts bank slip information using local OpenThai 2.1 OCR model.
  * High-performance (0.1 - 0.5s with OpenVINO), zero cloud cost, 100% offline & private.
@@ -95,25 +100,32 @@ export async function extractSlipWithOpenThai(
 ): Promise<OpenThaiSlipResult | null> {
   let ocrUrl = options?.ocrUrl;
   if (!ocrUrl) {
-    // Dynamic Service Discovery: Fetch active OCR URL from Supabase system_settings
-    try {
-      const supabase = createAdminClient();
-      const res = await (supabase as any)
-        .from("system_settings")
-        .select("value")
-        .eq("key", "OPENTHAI_OCR_URL")
-        .maybeSingle();
+    const now = Date.now();
+    if (cachedDiscoveryUrl && now < discoveryCacheExpiresAt) {
+      ocrUrl = cachedDiscoveryUrl;
+    } else {
+      // Dynamic Service Discovery: Fetch active OCR URL from Supabase system_settings
+      try {
+        const supabase = createAdminClient();
+        const res = await (supabase as any)
+          .from("system_settings")
+          .select("value")
+          .eq("key", "OPENTHAI_OCR_URL")
+          .maybeSingle();
 
-      const val = res?.data?.value;
-      if (val && typeof val === "string" && val.startsWith("http")) {
-        ocrUrl = val.trim();
+        const val = res?.data?.value;
+        if (val && typeof val === "string" && val.startsWith("http")) {
+          ocrUrl = val.trim();
+          cachedDiscoveryUrl = ocrUrl;
+          discoveryCacheExpiresAt = now + DISCOVERY_CACHE_TTL_MS;
+        }
+      } catch {
+        // Fallback to environment variable or localhost default
       }
-    } catch {
-      // Fallback to environment variable or localhost default
-    }
 
-    if (!ocrUrl) {
-      ocrUrl = process.env.OPENTHAI_OCR_URL || "http://127.0.0.1:8001/ocr";
+      if (!ocrUrl) {
+        ocrUrl = process.env.OPENTHAI_OCR_URL || "http://127.0.0.1:8001/ocr";
+      }
     }
   }
 
@@ -125,13 +137,13 @@ export async function extractSlipWithOpenThai(
   // Increase default timeout to 12s for remote tunnels (ngrok/cloudflared)
   const timeoutMs = options?.timeoutMs || 12000;
 
-  // 1. Optimize image buffer with sharp (auto-orient EXIF, resize to max 1400px width/height)
+  // 1. Optimize image buffer with sharp (auto-orient EXIF, resize to max 1080px width/height, quality 82)
   let buffer = Buffer.isBuffer(imageInput) ? imageInput : Buffer.from(imageInput);
   try {
     buffer = await sharp(buffer)
       .rotate() // auto-orient based on EXIF
-      .resize({ width: 1400, height: 1400, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 85 })
+      .resize({ width: 1080, height: 1080, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82 })
       .toBuffer();
   } catch (err) {
     console.warn("[OpenThaiExtractor] Image optimization skipped or failed:", err);

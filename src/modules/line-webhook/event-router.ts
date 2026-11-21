@@ -34,20 +34,23 @@ export class LineEventRouter {
   }
 
   /**
-   * Processes a list of webhook events
+   * Processes a list of webhook events concurrently using Promise.allSettled
    */
   async handleEvents(events: WebhookEvent[]) {
-    const results = [];
-    for (const event of events) {
-      try {
-        const result = await this.handleSingleEvent(event);
-        results.push(result);
-      } catch (err) {
-        console.error("[LineEventRouter] Error processing event:", err);
-        results.push({ success: false, error: String(err) });
-      }
-    }
-    return results;
+    const settled = await Promise.allSettled(
+      events.map(async (event) => {
+        try {
+          return await this.handleSingleEvent(event);
+        } catch (err) {
+          console.error("[LineEventRouter] Error processing event:", err);
+          return { success: false, error: String(err) };
+        }
+      })
+    );
+
+    return settled.map((s) =>
+      s.status === "fulfilled" ? s.value : { success: false, error: String(s.reason) }
+    );
   }
 
   /**
@@ -304,7 +307,7 @@ export class LineEventRouter {
       }
     }
 
-    // 7. Create Pending Deposit
+    // 7. Create Pending Deposit (skip redundant duplicate check since already verified at step 6)
     const deposit = await this.depositService.createPendingDeposit({
       groupId: group.id,
       memberId: member.memberId,
@@ -313,6 +316,7 @@ export class LineEventRouter {
       detectedAmount,
       transferDate,
       bankReference,
+      skipDuplicateCheck: true,
     });
 
     // 8. Reply with interactive Flex Message Card
