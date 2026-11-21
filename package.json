@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:security": "vitest run tests/security"
+    "test:security": "vitest run tests/security",
+    "ocr:setup": "uv venv third_party/OpenThai2.1-OCR-Text-20261118/.venv --python 3.12 && uv pip install -r third_party/OpenThai2.1-OCR-Text-20261118/requirements.txt",
+    "ocr:server": "third_party/OpenThai2.1-OCR-Text-20261118/.venv/Scripts/python.exe third_party/OpenThai2.1-OCR-Text-20261118/server.py"
   },
   "dependencies": {
     "@line/bot-sdk": "^9.7.0",

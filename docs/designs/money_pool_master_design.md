@@ -41,9 +41,9 @@ flowchart TB
 
         subgraph INTEGRATIONS["Integration Adapters"]
             LINE_ADAPTER["LINE Messaging API Client"]
-            OCR_ADAPTER["Tesseract.js Local Worker"]
+            OCR_ADAPTER["OpenThai 2.1 Local OCR (OpenVINO / ONNX)"]
             STORAGE_ADAPTER["Supabase Storage Client (Private)"]
-            AI_ADAPTER["LLM / Gemini API Adapter"]
+            AI_ADAPTER["LLM / Local AI Adapter"]
             VERIFY_PROVIDER["Verification Provider Interface (Strategy)"]
         end
 
@@ -129,7 +129,7 @@ flowchart TB
 | Architectural Dimension | Phase 1 (Foundation & MVP) | Phase 2 (Automation & Intelligence) | Phase 3 (Advanced Money Pool) |
 |---|---|---|---|
 | **Database Environment** | Local Supabase via Docker (PostgreSQL 15, RLS, Auth, Storage) | Local / Dedicated Cloud Supabase Instance with `pg_cron` | Production Cloud Supabase Cluster with Automated Replication |
-| **Slip OCR & Extraction** | Local Tesseract.js (tha+eng) + Regex Parser | Local Tesseract.js + Structured LLM Extraction Fallback | Extensible Multi-Provider OCR (Tesseract / Cloud Vision) |
+| **Slip OCR & Extraction** | Local OpenThai 2.1 OCR (OpenVINO / ONNX, ~100-300ms) + Regex Parser | OpenThai 2.1 HTTP Daemon + CLI Runner with Tesseract Fallback | Extensible Multi-Provider OCR (OpenThai / OpenVINO On-Prem) |
 | **Slip Fraud Prevention** | Basic Bank Reference Number Deduplication | Multi-Layered In-House Engine (SHA-256 + pHash + Risk Score) | Pluggable `VerificationProviderInterface` (SlipOK / Bank Reconciler) |
 | **Chat Interaction** | Deterministic Command Prefix (`#ยอดรวม`, `#ยอดฉัน`, `#ช่วยเหลือ`) | Hybrid AI: On-Demand Quick AI via `@Bot` mention in Group | Context-Aware Group Assistant + Voting Interactions |
 | **Mini App Intelligence** | Static Dashboard & Financial Overview | Full AI Financial Copilot (Multi-turn, Charts, Analytics) | Explainable AI Financial Insights & Trend Predictor |
@@ -294,12 +294,12 @@ erDiagram
 ## 5. Phase-by-Phase Technical Blueprint
 
 ### 5.1 Phase 1 — Foundation & MVP
-* **Objective:** Establish the bedrock infrastructure where LINE Group members register via Mini App, upload transfer slips, have them scanned via local Tesseract.js, and allow Owner/Treasurer to approve via in-chat buttons with loading indicators and idempotent ledger entries.
+* **Objective:** Establish the bedrock infrastructure where LINE Group members register via Mini App, upload transfer slips, have them scanned via high-performance local OpenThai 2.1 OCR (OpenVINO / ONNX), and allow Owner/Treasurer to approve via in-chat buttons with loading indicators and idempotent ledger entries.
 * **Key Deliverables:**
   1. Next.js 15 App Router setup with Tailwind CSS and shadcn/ui.
   2. Local Docker Compose orchestrating Supabase (PostgreSQL 15, Auth, Storage, Studio).
   3. LINE Webhook handler (`/api/webhooks/line`) with HMAC-SHA256 signature verification.
-  4. Local Tesseract.js OCR engine with regex parser extracting amount, timestamp, and bank reference.
+  4. Local OpenThai 2.1 OCR engine (PP-OCRv6-tiny + Thai CTC recognizer with OpenVINO / ONNX runtime, ~100-300ms) with specialized bank slip parser extracting amount, timestamp, bank name, and reference code. Local Tesseract.js retained as emergency fallback.
   5. In-Chat Postback Approval:
      - Immediate `POST /v2/bot/chat/loading/start` trigger.
      - Atomic lock: `UPDATE deposits SET status = 'processing', click_count = click_count + 1 WHERE id = :id AND status = 'pending'`.

@@ -6,7 +6,7 @@ Money Pool (Bank Buddy) is a financial management system designed for friend gro
 
 - **Strict Group Isolation & RBAC**: Row-Level Security (RLS) ensuring strict isolation across LINE groups. Supported roles: Owner, Treasurer, Member, Viewer.
 - **Strict Onboarding Gate**: Members onboard via LINE Mini App (LIFF) and require approval before their slips are accepted.
-- **Local Slip OCR**: Embedded Tesseract.js engine parses Thai/English bank transfer slips to extract amount, transfer date/time, and transaction reference numbers.
+- **Local OpenThai 2.1 OCR (OpenVINO / ONNX)**: High-performance offline OCR engine (`third_party/OpenThai2.1-OCR-Text-20261118`) optimized specifically for Thai bank transfer slips and loopless fonts (Prompt, Kanit). Runs in 100–300ms on CPU without any cloud APIs.
 - **Deterministic In-Chat Slip Approval**: Interactive Flex Message Postback buttons with LINE Loading typing animation (`POST /v2/bot/chat/loading/start`) and atomic database locking against race conditions.
 - **Immutable Financial Ledger**: Append-only double-entry accounting ledger where running balances are calculated strictly from verified transactions.
 - **Sub-Second Chat Commands**: Deterministic `#` prefix query routing (`#ยอดรวม`, `#ยอดฉัน`, `#ช่วยเหลือ`) without LLM hallucination risks.
@@ -46,7 +46,21 @@ docker compose up -d postgres supabase-auth supabase-storage
 
 Migrations and seed data in `supabase/` will automatically initialize.
 
-### 4. Run Development Server
+### 4. Setup & Start Local OpenThai 2.1 OCR Service
+
+Bank Buddy includes a specialized local Thai OCR engine powered by OpenThai 2.1 (PP-OCRv6 + Thai CTC recognizer) with CPU acceleration (OpenVINO / ONNX Runtime).
+
+```bash
+# 1. Create Python 3.12 virtualenv and install dependencies via uv
+npm run ocr:setup
+
+# 2. Start the local OCR HTTP Daemon (serves on http://127.0.0.1:8001)
+npm run ocr:server
+```
+
+*Note: If the HTTP daemon is not running, Bank Buddy automatically falls back to executing the Python CLI runner as a child process.*
+
+### 5. Run Development Server
 
 ```bash
 npm run dev

@@ -5,7 +5,7 @@ import { DepositService } from "@/modules/deposits/service";
 import { MembershipService } from "@/modules/membership/service";
 import { recognizeSlipImage } from "@/modules/ocr/tesseract-worker";
 import { parseBankSlipText } from "@/modules/ocr/parser";
-import { extractSlipWithGeminiVision } from "@/modules/ocr/gemini-extractor";
+import { extractSlipWithOpenThai } from "@/modules/ocr/openthai-extractor";
 import {
   createWelcomeFlexMessage,
   createSlipReviewFlexMessage,
@@ -244,28 +244,26 @@ export class LineEventRouter {
     // 4. Download slip image from LINE
     const imageBuffer = await this.lineClient.getMessageContent(messageId);
 
-    // 5. Extract Slip Data (Primary: Gemini Vision API, Fallback: Local Tesseract OCR)
+    // 5. Extract Slip Data (Primary: OpenThai 2.1 OCR, Fallback: Local Tesseract OCR)
     let rawOcrText = "";
     let detectedAmount: number | null = null;
     let transferDate: string | null = null;
     let bankReference: string | null = null;
 
-    // A) Try Gemini Multimodal Vision first if API key configured (1-2s, highly accurate on Thai bank slips)
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const geminiResult = await extractSlipWithGeminiVision(imageBuffer);
-        if (geminiResult) {
-          rawOcrText = geminiResult.rawText || "";
-          detectedAmount = geminiResult.amount;
-          transferDate = geminiResult.transferDate;
-          bankReference = geminiResult.bankReference;
-        }
-      } catch (geminiErr) {
-        console.warn("[LineEventRouter] Gemini Vision extraction error, falling back to local OCR:", geminiErr);
+    // A) Try OpenThai 2.1 OCR (Local ONNX/OpenVINO model, 100-300ms, specialized on Thai receipts & slips)
+    try {
+      const openThaiResult = await extractSlipWithOpenThai(imageBuffer);
+      if (openThaiResult) {
+        rawOcrText = openThaiResult.rawText || "";
+        detectedAmount = openThaiResult.amount;
+        transferDate = openThaiResult.transferDate;
+        bankReference = openThaiResult.bankReference;
       }
+    } catch (openThaiErr) {
+      console.warn("[LineEventRouter] OpenThai OCR extraction error, falling back to local OCR:", openThaiErr);
     }
 
-    // B) Fallback to local Tesseract OCR if Gemini did not detect or is not configured
+    // B) Fallback to local Tesseract OCR if OpenThai did not detect or is unavailable
     if (!detectedAmount && !bankReference) {
       try {
         const localText = await recognizeSlipImage(imageBuffer, { timeoutMs: 8000 });

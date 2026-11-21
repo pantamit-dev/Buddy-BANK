@@ -36,3 +36,10 @@ next-env.d.ts
 
 # docker pgdata
 .docker/pgdata
+
+# python / openthai local environment
+.venv/
+__pycache__/
+*.pyc
+third_party/**/.venv/
+third_party/**/__pycache__/
