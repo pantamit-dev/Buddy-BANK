@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { canReviewDeposits, canManageMembers, canSubmitSlips } from "@/modules/membership/rbac";
+import {
+  canReviewDeposits,
+  canManageMembers,
+  canSubmitSlips,
+  canReviewDepositsWithTemp,
+  isTemporaryAdmin,
+} from "@/modules/membership/rbac";
 
 describe("Security & Multi-Tenant Isolation Tests (RLS & RBAC)", () => {
   describe("RBAC Permissions Verification", () => {
@@ -23,6 +29,23 @@ describe("Security & Multi-Tenant Isolation Tests (RLS & RBAC)", () => {
       expect(canSubmitSlips("pending_approval")).toBe(false);
       expect(canSubmitSlips("suspended")).toBe(false);
     });
+
+    it("evaluates temporary admin expiration and review permissions correctly", () => {
+      const futureDate = new Date(Date.now() + 3600000).toISOString(); // 1 hour in future
+      const pastDate = new Date(Date.now() - 3600000).toISOString(); // 1 hour in past
+
+      // Active temporary admin
+      expect(isTemporaryAdmin(futureDate)).toBe(true);
+      expect(canReviewDepositsWithTemp("member", futureDate)).toBe(true);
+
+      // Expired temporary admin
+      expect(isTemporaryAdmin(pastDate)).toBe(false);
+      expect(canReviewDepositsWithTemp("member", pastDate)).toBe(false);
+
+      // Permanent treasurer/owner always valid regardless of tempAdminUntil
+      expect(canReviewDepositsWithTemp("owner", null)).toBe(true);
+      expect(canReviewDepositsWithTemp("treasurer", pastDate)).toBe(true);
+    });
   });
 
   describe("Cross-Group Isolation Simulation", () => {
@@ -44,12 +67,29 @@ describe("Security & Multi-Tenant Isolation Tests (RLS & RBAC)", () => {
       { id: "dep-B1", groupId: "group-B", amount: 2000 },
     ];
 
+    const withdrawals = [
+      { id: "wd-A1", groupId: "group-A", amount: 500, purpose: "Supplies A" },
+      { id: "wd-B1", groupId: "group-B", amount: 800, purpose: "Dinner B" },
+    ];
+
+    const reports = [
+      { id: "rep-A1", groupId: "group-A", period: "2026-11" },
+      { id: "rep-B1", groupId: "group-B", period: "2026-11" },
+    ];
+
     function filterDepositsForUser(userContext: MemberContext) {
-      // Mimics Supabase RLS policy: WHERE group_id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid() AND status = 'active')
-      if (userContext.status !== "active") {
-        return [];
-      }
+      if (userContext.status !== "active") return [];
       return deposits.filter((d) => d.groupId === userContext.groupId);
+    }
+
+    function filterWithdrawalsForUser(userContext: MemberContext) {
+      if (userContext.status !== "active") return [];
+      return withdrawals.filter((w) => w.groupId === userContext.groupId);
+    }
+
+    function filterReportsForUser(userContext: MemberContext) {
+      if (userContext.status !== "active") return [];
+      return reports.filter((r) => r.groupId === userContext.groupId);
     }
 
     it("prevents user in Group B from querying deposits from Group A", () => {
@@ -74,6 +114,20 @@ describe("Security & Multi-Tenant Isolation Tests (RLS & RBAC)", () => {
 
       expect(visibleDeposits.length).toBe(1);
       expect(visibleDeposits[0].id).toBe("dep-A1");
+    });
+
+    it("isolates withdrawals and reports across group tenants strictly", () => {
+      const userB = members.find((m) => m.userId === "user-B")!;
+      const visibleWithdrawals = filterWithdrawalsForUser(userB);
+      const visibleReports = filterReportsForUser(userB);
+
+      expect(visibleWithdrawals.length).toBe(1);
+      expect(visibleWithdrawals[0].id).toBe("wd-B1");
+      expect(visibleWithdrawals.some((w) => w.groupId === "group-A")).toBe(false);
+
+      expect(visibleReports.length).toBe(1);
+      expect(visibleReports[0].id).toBe("rep-B1");
+      expect(visibleReports.some((r) => r.groupId === "group-A")).toBe(false);
     });
   });
 });

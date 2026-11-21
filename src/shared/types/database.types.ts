@@ -8,9 +8,20 @@ export type Json =
 
 export type MemberRole = "owner" | "treasurer" | "member" | "viewer";
 export type MemberStatus = "pending_approval" | "active" | "suspended";
-export type DepositStatus = "pending" | "processing" | "verified" | "rejected" | "cancelled";
-export type TransactionType = "deposit" | "refund" | "adjustment";
+export type DepositStatus =
+  | "pending"
+  | "processing"
+  | "verified"
+  | "rejected"
+  | "cancelled"
+  | "needs_review";
+export type TransactionType = "deposit" | "refund" | "adjustment" | "withdrawal";
 export type LedgerEntryType = "credit" | "debit";
+export type JobStatus = "pending" | "processing" | "completed" | "failed" | "dead_letter";
+export type WithdrawalStatus = "pending_vote" | "approved" | "rejected" | "cancelled" | "paid";
+export type VoteChoice = "approve" | "reject";
+export type ReportType = "monthly_summary" | "financial_audit" | "excel_export" | "pdf_report";
+export type ReportStatus = "generating" | "completed" | "failed";
 
 export interface Database {
   public: {
@@ -87,6 +98,7 @@ export interface Database {
           user_id: string;
           role: MemberRole;
           status: MemberStatus;
+          temp_admin_until: string | null;
           joined_at: string;
         };
         Insert: {
@@ -95,6 +107,7 @@ export interface Database {
           user_id: string;
           role: MemberRole;
           status: MemberStatus;
+          temp_admin_until?: string | null;
           joined_at?: string;
         };
         Update: {
@@ -103,6 +116,7 @@ export interface Database {
           user_id?: string;
           role?: MemberRole;
           status?: MemberStatus;
+          temp_admin_until?: string | null;
           joined_at?: string;
         };
         Relationships: [
@@ -122,6 +136,41 @@ export interface Database {
           }
         ];
       };
+      group_settings: {
+        Row: {
+          id: string;
+          group_id: string;
+          rules: Json;
+          voting_quorum_percent: number;
+          voting_duration_hours: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          rules?: Json;
+          voting_quorum_percent?: number;
+          voting_duration_hours?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          group_id?: string;
+          rules?: Json;
+          voting_quorum_percent?: number;
+          voting_duration_hours?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_settings_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: true;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       deposits: {
         Row: {
           id: string;
@@ -132,6 +181,9 @@ export interface Database {
           detected_amount: number | null;
           transfer_date: string | null;
           bank_reference: string | null;
+          file_sha256: string | null;
+          perceptual_hash: string | null;
+          fraud_risk_score: number | null;
           status: DepositStatus;
           click_count: number;
           reviewed_by: string | null;
@@ -147,6 +199,9 @@ export interface Database {
           detected_amount?: number | null;
           transfer_date?: string | null;
           bank_reference?: string | null;
+          file_sha256?: string | null;
+          perceptual_hash?: string | null;
+          fraud_risk_score?: number | null;
           status?: DepositStatus;
           click_count?: number;
           reviewed_by?: string | null;
@@ -162,6 +217,9 @@ export interface Database {
           detected_amount?: number | null;
           transfer_date?: string | null;
           bank_reference?: string | null;
+          file_sha256?: string | null;
+          perceptual_hash?: string | null;
+          fraud_risk_score?: number | null;
           status?: DepositStatus;
           click_count?: number;
           reviewed_by?: string | null;
@@ -192,11 +250,102 @@ export interface Database {
           }
         ];
       };
+      withdrawals: {
+        Row: {
+          id: string;
+          group_id: string;
+          requested_by: string;
+          amount: number;
+          purpose: string;
+          receipt_storage_path: string | null;
+          status: WithdrawalStatus;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          requested_by: string;
+          amount: number;
+          purpose: string;
+          receipt_storage_path?: string | null;
+          status?: WithdrawalStatus;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          group_id?: string;
+          requested_by?: string;
+          amount?: number;
+          purpose?: string;
+          receipt_storage_path?: string | null;
+          status?: WithdrawalStatus;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "withdrawals_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "withdrawals_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "group_members";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      withdrawal_votes: {
+        Row: {
+          id: string;
+          withdrawal_id: string;
+          member_id: string;
+          vote_choice: VoteChoice;
+          voted_at: string;
+        };
+        Insert: {
+          id?: string;
+          withdrawal_id: string;
+          member_id: string;
+          vote_choice: VoteChoice;
+          voted_at?: string;
+        };
+        Update: {
+          id?: string;
+          withdrawal_id?: string;
+          member_id?: string;
+          vote_choice?: VoteChoice;
+          voted_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_votes_withdrawal_id_fkey";
+            columns: ["withdrawal_id"];
+            isOneToOne: false;
+            referencedRelation: "withdrawals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "withdrawal_votes_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "group_members";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       transactions: {
         Row: {
           id: string;
           group_id: string;
-          deposit_id: string;
+          deposit_id: string | null;
+          withdrawal_id: string | null;
           amount: number;
           transaction_type: TransactionType;
           confirmed_at: string;
@@ -204,7 +353,8 @@ export interface Database {
         Insert: {
           id?: string;
           group_id: string;
-          deposit_id: string;
+          deposit_id?: string | null;
+          withdrawal_id?: string | null;
           amount: number;
           transaction_type?: TransactionType;
           confirmed_at?: string;
@@ -212,7 +362,8 @@ export interface Database {
         Update: {
           id?: string;
           group_id?: string;
-          deposit_id?: string;
+          deposit_id?: string | null;
+          withdrawal_id?: string | null;
           amount?: number;
           transaction_type?: TransactionType;
           confirmed_at?: string;
@@ -230,6 +381,13 @@ export interface Database {
             columns: ["deposit_id"];
             isOneToOne: true;
             referencedRelation: "deposits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_withdrawal_id_fkey";
+            columns: ["withdrawal_id"];
+            isOneToOne: true;
+            referencedRelation: "withdrawals";
             referencedColumns: ["id"];
           }
         ];
@@ -285,6 +443,94 @@ export interface Database {
             columns: ["transaction_id"];
             isOneToOne: false;
             referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      background_jobs: {
+        Row: {
+          id: string;
+          group_id: string | null;
+          job_type: string;
+          payload: Json;
+          status: JobStatus;
+          attempts: number;
+          max_attempts: number;
+          run_at: string;
+          created_at: string;
+          updated_at: string;
+          last_error: string | null;
+        };
+        Insert: {
+          id?: string;
+          group_id?: string | null;
+          job_type: string;
+          payload?: Json;
+          status?: JobStatus;
+          attempts?: number;
+          max_attempts?: number;
+          run_at?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_error?: string | null;
+        };
+        Update: {
+          id?: string;
+          group_id?: string | null;
+          job_type?: string;
+          payload?: Json;
+          status?: JobStatus;
+          attempts?: number;
+          max_attempts?: number;
+          run_at?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_error?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "background_jobs_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      reports: {
+        Row: {
+          id: string;
+          group_id: string;
+          report_type: ReportType;
+          period: string;
+          file_storage_path: string;
+          status: ReportStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          report_type: ReportType;
+          period: string;
+          file_storage_path: string;
+          status?: ReportStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          group_id?: string;
+          report_type?: ReportType;
+          period?: string;
+          file_storage_path?: string;
+          status?: ReportStatus;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
             referencedColumns: ["id"];
           }
         ];

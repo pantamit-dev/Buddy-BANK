@@ -9,6 +9,25 @@ export function canReviewDeposits(role: MemberRole | string | null | undefined):
 }
 
 /**
+ * Checks if a member has active temporary admin privileges
+ */
+export function isTemporaryAdmin(tempAdminUntil: string | Date | null | undefined): boolean {
+  if (!tempAdminUntil) return false;
+  const expiry = new Date(tempAdminUntil);
+  return !isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
+}
+
+/**
+ * Checks if a member role or temporary status has deposit review permissions
+ */
+export function canReviewDepositsWithTemp(
+  role: MemberRole | string | null | undefined,
+  tempAdminUntil?: string | Date | null | undefined
+): boolean {
+  return canReviewDeposits(role) || isTemporaryAdmin(tempAdminUntil);
+}
+
+/**
  * Checks if a member role can manage group rosters and promote members
  */
 export function canManageMembers(role: MemberRole | string | null | undefined): boolean {

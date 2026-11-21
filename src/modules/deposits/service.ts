@@ -2,8 +2,11 @@ import { createAdminClient } from "@/integrations/supabase/server";
 import { DepositStateMachine } from "./state-machine";
 import { LedgerService } from "@/modules/ledger/service";
 import { MembershipService } from "@/modules/membership/service";
-import { canReviewDeposits } from "@/modules/membership/rbac";
+import { canReviewDepositsWithTemp } from "@/modules/membership/rbac";
 import { parseSlipDateToIso } from "@/modules/ocr/parser";
+import { FraudDetectionService } from "@/modules/fraud/service";
+import { computeFileSha256 } from "@/modules/fraud/hash";
+import type { DepositStatus } from "@/shared/types/database.types";
 
 export interface CreateDepositInput {
   groupId: string;
@@ -19,11 +22,13 @@ export class DepositService {
   private stateMachine: DepositStateMachine;
   private ledgerService: LedgerService;
   private membershipService: MembershipService;
+  private fraudService: FraudDetectionService;
 
   constructor(private supabase = createAdminClient()) {
     this.stateMachine = new DepositStateMachine(this.supabase);
     this.ledgerService = new LedgerService(this.supabase);
     this.membershipService = new MembershipService(this.supabase);
+    this.fraudService = new FraudDetectionService(this.supabase);
   }
 
   /**
@@ -85,7 +90,32 @@ export class DepositService {
 
     const storagePath = uploadData?.path || `slips/${fileName}`;
 
-    // 3. Insert deposit record in 'pending' status
+    // 3. Perform fraud, perceptual hash, and risk score analysis
+    let fileSha256: string | null = null;
+    let perceptualHash: string | null = null;
+    let fraudRiskScore: number | null = null;
+    let status: DepositStatus = "pending";
+
+    try {
+      const analysis = await this.fraudService.analyzeSlip({
+        groupId,
+        imageBuffer: buffer,
+        detectedAmount,
+        transferDate,
+        bankReference,
+        rawOcrText,
+      });
+      fileSha256 = analysis.sha256;
+      perceptualHash = analysis.perceptualHash;
+      fraudRiskScore = analysis.riskScore;
+      if (analysis.needsReview) {
+        status = "needs_review";
+      }
+    } catch {
+      fileSha256 = computeFileSha256(buffer);
+    }
+
+    // 4. Insert deposit record
     const { data: deposit, error: insertErr } = await this.supabase
       .from("deposits")
       .insert({
@@ -96,7 +126,10 @@ export class DepositService {
         detected_amount: detectedAmount || null,
         transfer_date: parseSlipDateToIso(transferDate),
         bank_reference: bankReference || null,
-        status: "pending",
+        file_sha256: fileSha256,
+        perceptual_hash: perceptualHash,
+        fraud_risk_score: fraudRiskScore,
+        status,
         click_count: 0,
       })
       .select()
@@ -138,8 +171,8 @@ export class DepositService {
       reviewerLineUserId
     );
 
-    if (!reviewerMember || !canReviewDeposits(reviewerMember.role)) {
-      throw new Error("UNAUTHORIZED_REVIEWER: Only owners or treasurers can review deposits");
+    if (!reviewerMember || !canReviewDepositsWithTemp(reviewerMember.role, reviewerMember.tempAdminUntil)) {
+      throw new Error("UNAUTHORIZED_REVIEWER: Only owners, treasurers, or active temporary admins can review deposits");
     }
 
     // 3. Acquire atomic idempotency lock

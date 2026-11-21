@@ -161,6 +161,24 @@ export default function OverviewPage() {
         </Link>
       </div>
 
+      {/* Reports & Analytics Quick Access */}
+      <Link href="/reports" className="block">
+        <Card className="border-indigo-100 bg-gradient-to-r from-indigo-50/70 to-blue-50/70 hover:shadow-xs transition-shadow">
+          <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-indigo-600 text-white">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900">รายงานการเงิน & AI Copilot</p>
+                <p className="text-[10px] text-slate-500">ดาวน์โหลดรายงาน Excel และดูแนวโน้มการออม</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-indigo-600" />
+          </CardContent>
+        </Card>
+      </Link>
+
       {/* Recent Ledger Credits */}
       <Card>
         <CardHeader className="py-3 px-4 border-b border-slate-100 flex flex-row items-center justify-between">

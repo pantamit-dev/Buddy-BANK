@@ -118,6 +118,45 @@ export class LedgerService {
   }
 
   /**
+   * Comprehensive group balance with progress and member counts
+   */
+  async getGroupBalance(groupId: string) {
+    const { data: group } = await this.supabase
+      .from("groups")
+      .select("name, target_amount")
+      .eq("id", groupId)
+      .maybeSingle();
+
+    const summary = await this.getGroupBalanceSummary(groupId);
+
+    const { data: entries } = await this.supabase
+      .from("ledger_entries")
+      .select("member_id")
+      .eq("group_id", groupId)
+      .eq("entry_type", "credit");
+
+    const uniqueContributors = new Set((entries || []).map((e) => e.member_id));
+
+    const { data: allMembers } = await this.supabase
+      .from("group_members")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("status", "active");
+
+    return {
+      groupName: group?.name || "กลุ่มกองกลาง",
+      currentBalance: summary.totalBalance,
+      targetAmount: summary.targetAmount,
+      progressPercentage: summary.percentage,
+      remainingAmount: summary.remainingAmount,
+      totalDeposited: summary.totalCredit,
+      totalWithdrawn: summary.totalDebit,
+      contributingMembersCount: uniqueContributors.size,
+      totalMembersCount: allMembers?.length || 1,
+    };
+  }
+
+  /**
    * Queries individual member contribution in a group
    */
   async getMemberContribution(groupId: string, memberId: string) {

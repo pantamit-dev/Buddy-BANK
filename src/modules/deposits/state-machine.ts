@@ -12,25 +12,26 @@ export class DepositStateMachine {
 
   /**
    * Attempts an atomic idempotency lock:
-   * Moves status from 'pending' to 'processing' and increments click_count.
-   * If deposit was not in 'pending' status, returns success: false.
+   * Moves status from 'pending' or 'needs_review' to 'processing' and increments click_count.
+   * If deposit was not in an actionable status, returns success: false.
    */
   async lockForProcessing(depositId: string): Promise<TransitionLockResult> {
     const { data, error } = await this.supabase
       .from("deposits")
       .select("*")
       .eq("id", depositId)
-      .eq("status", "pending")
       .maybeSingle();
 
-    if (error || !data) {
+    if (error || !data || (data.status !== "pending" && data.status !== "needs_review")) {
       return {
         success: false,
         message: "รายการนี้ไม่ได้อยู่ในสถานะรอดำเนินการ หรือถูกประมวลผลไปแล้ว",
       };
     }
 
-    // Perform atomic conditional update
+    const currentStatus = data.status;
+
+    // Perform atomic conditional update matching current status
     const { data: updated, error: updateErr } = await this.supabase
       .from("deposits")
       .update({
@@ -38,7 +39,7 @@ export class DepositStateMachine {
         click_count: (data.click_count || 0) + 1,
       })
       .eq("id", depositId)
-      .eq("status", "pending")
+      .eq("status", currentStatus)
       .select()
       .maybeSingle();
 

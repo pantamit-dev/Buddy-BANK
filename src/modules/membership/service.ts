@@ -11,6 +11,7 @@ export interface MembershipRecord {
   displayName: string;
   pictureUrl: string | null;
   lineUserId: string;
+  tempAdminUntil?: string | null;
 }
 
 export class MembershipService {
@@ -97,6 +98,7 @@ export class MembershipService {
         user_id,
         role,
         status,
+        temp_admin_until,
         profiles!inner (
           id,
           line_user_id,
@@ -118,6 +120,7 @@ export class MembershipService {
       userId: member.user_id,
       role: member.role as MemberRole,
       status: member.status as MemberStatus,
+      tempAdminUntil: (member as any).temp_admin_until || null,
       displayName: prof.display_name,
       pictureUrl: prof.picture_url,
       lineUserId: prof.line_user_id,
@@ -230,6 +233,143 @@ export class MembershipService {
       .eq("id", memberId);
 
     if (error) throw error;
+    return true;
+  }
+
+  /**
+   * Suspends a member (Owner only)
+   */
+  async suspendMember(params: {
+    memberId: string;
+    actorLineUserId: string;
+    reason?: string;
+  }): Promise<boolean> {
+    const { memberId, actorLineUserId, reason } = params;
+
+    const { data: targetMember } = await this.supabase
+      .from("group_members")
+      .select("id, group_id, user_id")
+      .eq("id", memberId)
+      .single();
+
+    if (!targetMember) throw new Error("Target member not found");
+
+    const actor = await this.getMemberByLineUserId(
+      targetMember.group_id,
+      actorLineUserId
+    );
+    if (!actor || !canManageMembers(actor.role)) {
+      throw new Error("Unauthorized: Only group owner can suspend members");
+    }
+
+    const { error } = await this.supabase
+      .from("group_members")
+      .update({ status: "suspended" })
+      .eq("id", memberId);
+
+    if (error) throw error;
+
+    // Record audit log
+    await this.supabase.from("audit_logs").insert({
+      group_id: targetMember.group_id,
+      actor_id: actor.userId,
+      action: "SUSPEND_MEMBER",
+      entity_name: "group_members",
+      entity_id: memberId,
+      payload: { reason: reason || "Suspended by owner" },
+    });
+
+    return true;
+  }
+
+  /**
+   * Reactivates a suspended member (Owner only)
+   */
+  async activateMember(params: {
+    memberId: string;
+    actorLineUserId: string;
+  }): Promise<boolean> {
+    const { memberId, actorLineUserId } = params;
+
+    const { data: targetMember } = await this.supabase
+      .from("group_members")
+      .select("id, group_id, user_id")
+      .eq("id", memberId)
+      .single();
+
+    if (!targetMember) throw new Error("Target member not found");
+
+    const actor = await this.getMemberByLineUserId(
+      targetMember.group_id,
+      actorLineUserId
+    );
+    if (!actor || !canManageMembers(actor.role)) {
+      throw new Error("Unauthorized: Only group owner can reactivate members");
+    }
+
+    const { error } = await this.supabase
+      .from("group_members")
+      .update({ status: "active" })
+      .eq("id", memberId);
+
+    if (error) throw error;
+
+    // Record audit log
+    await this.supabase.from("audit_logs").insert({
+      group_id: targetMember.group_id,
+      actor_id: actor.userId,
+      action: "ACTIVATE_MEMBER",
+      entity_name: "group_members",
+      entity_id: memberId,
+    });
+
+    return true;
+  }
+
+  /**
+   * Assigns temporary admin / treasurer privileges with expiration date (Owner only)
+   */
+  async assignTemporaryAdmin(params: {
+    memberId: string;
+    untilDate: Date | string;
+    actorLineUserId: string;
+  }): Promise<boolean> {
+    const { memberId, untilDate, actorLineUserId } = params;
+    const untilIso = typeof untilDate === "string" ? untilDate : untilDate.toISOString();
+
+    const { data: targetMember } = await this.supabase
+      .from("group_members")
+      .select("id, group_id, user_id")
+      .eq("id", memberId)
+      .single();
+
+    if (!targetMember) throw new Error("Target member not found");
+
+    const actor = await this.getMemberByLineUserId(
+      targetMember.group_id,
+      actorLineUserId
+    );
+    if (!actor || !canManageMembers(actor.role)) {
+      throw new Error("Unauthorized: Only group owner can assign temporary admin");
+    }
+
+    const { error } = await this.supabase
+      .from("group_members")
+      .update({ temp_admin_until: untilIso })
+      .eq("id", memberId);
+
+    if (error) throw error;
+
+    // Record audit log
+    await this.supabase.from("audit_logs").insert({
+      group_id: targetMember.group_id,
+      actor_id: actor.userId,
+      action: "ASSIGN_TEMP_ADMIN",
+      entity_name: "group_members",
+      entity_id: memberId,
+      payload: { temp_admin_until: untilIso },
+    });
+
     return true;
   }
 }

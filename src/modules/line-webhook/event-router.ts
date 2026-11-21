@@ -12,8 +12,11 @@ import {
   createDuplicateSlipFlexMessage,
   createMembershipRequiredFlexMessage,
 } from "./flex-templates";
-import { canReviewDeposits, canSubmitSlips } from "@/modules/membership/rbac";
+import { canReviewDepositsWithTemp, canSubmitSlips } from "@/modules/membership/rbac";
 import { createAdminClient } from "@/integrations/supabase/server";
+import { HybridAiQueryRouter } from "@/modules/ai/query-router";
+import { WithdrawalService } from "@/modules/withdrawals/service";
+import { createWithdrawalResultFlexMessage } from "@/modules/withdrawals/flex-templates";
 
 export class LineEventRouter {
   private lineClient: LineApiClient;
@@ -170,6 +173,22 @@ export class LineEventRouter {
       return { success: true, commandExecuted: true };
     }
 
+    // On-Demand Hybrid AI Query Router (@Bot / @MoneyPoolBot)
+    if (HybridAiQueryRouter.isBotMention(text)) {
+      const { data: group } = await this.supabase
+        .from("groups")
+        .select("id")
+        .eq("line_group_id", groupId)
+        .maybeSingle();
+
+      if (group && replyToken) {
+        const aiRouter = new HybridAiQueryRouter(this.supabase);
+        const replyText = await aiRouter.handleGroupQuery(group.id, text);
+        await this.lineClient.replyMessage(replyToken, [{ type: "text", text: replyText }]);
+        return { success: true, aiHandled: true };
+      }
+    }
+
     return { success: true, ignored: true };
   }
 
@@ -287,11 +306,81 @@ export class LineEventRouter {
   }) {
     const { data, source, replyToken } = params;
     const urlParams = new URLSearchParams(data);
-    const action = urlParams.get("action") as "approve" | "reject" | null;
-    const depositId = urlParams.get("depositId");
+    const action = urlParams.get("action");
     const chatId = source.groupId || source.userId;
 
-    if (!action || !depositId) {
+    // A. Handle Group Withdrawal Voting
+    if (action === "vote_withdrawal") {
+      const withdrawalId = urlParams.get("withdrawal_id");
+      const choice = urlParams.get("choice") as "approve" | "reject" | null;
+
+      if (!withdrawalId || !choice) {
+        return { success: false, reason: "Invalid withdrawal voting payload" };
+      }
+
+      if (chatId) {
+        await this.lineClient.showLoadingAnimation(chatId, 15);
+      }
+
+      const voterUserId = source.userId;
+      if (!voterUserId) return { success: false, reason: "Voter user ID missing" };
+
+      const { data: withdrawal } = await this.supabase
+        .from("withdrawals")
+        .select("id, group_id, amount, purpose, expires_at")
+        .eq("id", withdrawalId)
+        .maybeSingle();
+
+      if (!withdrawal) return { success: false, reason: "Withdrawal not found" };
+
+      const voterMember = await this.membershipService.getMemberByLineUserId(
+        withdrawal.group_id,
+        voterUserId
+      );
+
+      if (!voterMember || voterMember.status !== "active") {
+        if (replyToken) {
+          await this.lineClient.replyMessage(replyToken, [
+            { type: "text", text: "⚠️ ขออภัย เฉพาะสมาชิกที่ได้รับการอนุมัติในกลุ่มเท่านั้นที่มีสิทธิ์โหวต" },
+          ]);
+        }
+        return { success: false, reason: "UNAUTHORIZED_VOTER" };
+      }
+
+      const withdrawalService = new WithdrawalService(this.supabase);
+      const voteResult = await withdrawalService.voteWithdrawal({
+        withdrawalId,
+        voterMemberId: voterMember.memberId,
+        choice,
+      });
+
+      if (replyToken) {
+        if (voteResult.status === "approved" || voteResult.status === "rejected") {
+          const resultFlex = createWithdrawalResultFlexMessage({
+            amount: Number(withdrawal.amount),
+            purpose: withdrawal.purpose,
+            status: voteResult.status,
+            approveVotes: voteResult.approveVotes,
+            rejectVotes: voteResult.rejectVotes,
+          });
+          await this.lineClient.replyMessage(replyToken, [resultFlex]);
+        } else {
+          await this.lineClient.replyMessage(replyToken, [
+            {
+              type: "text",
+              text: `🗳️ บันทึกเสียงของคุณ (${choice === "approve" ? "เห็นชอบ" : "คัดค้าน"}) เรียบร้อยแล้ว!\nปัจจุบันเห็นชอบ ${voteResult.approveVotes}/${voteResult.requiredApprovals} เสียงที่ต้องการ`,
+            },
+          ]);
+        }
+      }
+
+      return { success: true, voteResult };
+    }
+
+    // B. Handle Deposit Review (Approve / Reject)
+    const depositId = urlParams.get("depositId");
+
+    if (!action || !depositId || (action !== "approve" && action !== "reject")) {
       return { success: false, reason: "Invalid postback payload" };
     }
 
@@ -322,7 +411,7 @@ export class LineEventRouter {
       reviewerUserId
     );
 
-    if (!reviewerMember || !canReviewDeposits(reviewerMember.role)) {
+    if (!reviewerMember || !canReviewDepositsWithTemp(reviewerMember.role, reviewerMember.tempAdminUntil)) {
       if (replyToken) {
         await this.lineClient.replyMessage(replyToken, [
           {
