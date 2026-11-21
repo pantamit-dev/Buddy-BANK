@@ -18,13 +18,20 @@ VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'C_GROUP_JAPAN_TRIP', 'ทริปญี่ปุ่น 2027 🌸', 50000.00, '11111111-1111-1111-1111-111111111111', 'active')
 ON CONFLICT (id) DO NOTHING;
 
+-- Target LINE Group: Cca9ff8bd835db5d10671e7777c19c61c
+INSERT INTO public.groups (id, line_group_id, name, target_amount, owner_id, status)
+VALUES
+    ('c9ff8bd8-35db-5d10-671e-7777c19c61c0', 'Cca9ff8bd835db5d10671e7777c19c61c', 'กลุ่มกองกลาง (Cca9ff8bd...)', 20000.00, '11111111-1111-1111-1111-111111111111', 'active')
+ON CONFLICT (line_group_id) DO NOTHING;
+
 -- Group Members
 INSERT INTO public.group_members (id, group_id, user_id, role, status)
 VALUES
     ('ba111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'owner', 'active'),
     ('ba222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'treasurer', 'active'),
     ('ba333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'member', 'active'),
-    ('ba444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'member', 'pending_approval')
+    ('ba444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'member', 'pending_approval'),
+    ('c9ff8bd8-35db-5d10-671e-7777c19c61c1', 'c9ff8bd8-35db-5d10-671e-7777c19c61c0', '11111111-1111-1111-1111-111111111111', 'owner', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- Initial Verified Deposit & Ledger Entries

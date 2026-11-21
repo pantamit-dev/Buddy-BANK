@@ -34,6 +34,26 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [groupId, setGroupId] = useState("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
   useEffect(() => {
+    // Check URL parameters for groupId or lineGroupId
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlGroupId = urlParams.get("groupId");
+      const urlLineGroupId = urlParams.get("lineGroupId");
+
+      if (urlGroupId) {
+        setGroupId(urlGroupId);
+      } else if (urlLineGroupId) {
+        fetch(`/api/groups?lineGroupId=${encodeURIComponent(urlLineGroupId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.group?.id) {
+              setGroupId(data.group.id);
+            }
+          })
+          .catch((err) => console.warn("[LiffProvider] Failed to resolve lineGroupId:", err));
+      }
+    }
+
     // Initialize LIFF or Fallback Mock in Browser
     const initLiff = async () => {
       try {

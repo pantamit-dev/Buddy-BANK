@@ -137,8 +137,8 @@ export class LineEventRouter {
     }
 
     const liffUrl = process.env.NEXT_PUBLIC_LIFF_ID
-      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`
-      : "https://line.me";
+      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?lineGroupId=${lineGroupId}`
+      : `https://line.me?lineGroupId=${lineGroupId}`;
 
     if (replyToken) {
       const welcomeFlex = createWelcomeFlexMessage(liffUrl);
@@ -202,8 +202,8 @@ export class LineEventRouter {
 
     if (!member || !canSubmitSlips(member.status)) {
       const liffUrl = process.env.NEXT_PUBLIC_LIFF_ID
-        ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`
-        : "https://line.me";
+        ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?groupId=${group.id}&lineGroupId=${lineGroupId}`
+        : `https://line.me?groupId=${group.id}&lineGroupId=${lineGroupId}`;
 
       if (replyToken) {
         const notApprovedFlex = createMembershipRequiredFlexMessage(
