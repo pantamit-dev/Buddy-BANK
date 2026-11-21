@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: supabase/postgres:15.1.1.78
+    container_name: bank_buddy_postgres
+    restart: unless-stopped
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_USER: postgres
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./.docker/pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d/migrations
+      - ./supabase/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  supabase-auth:
+    image: supabase/gotrue:v2.158.1
+    container_name: bank_buddy_auth
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres?sslmode=disable
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: "false"
+
+  supabase-storage:
+    image: supabase/storage-api:v1.11.13
+    container_name: bank_buddy_storage
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.anon_key_mock_local
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.service_role_key_mock_local
+      POSTGREST_URL: http://postgres:5432
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres?sslmode=disable
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: slips
+    volumes:
+      - ./.docker/storage:/var/lib/storage
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bank_buddy_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      LINE_CHANNEL_SECRET: mock_line_channel_secret_phase1
+      LINE_CHANNEL_ACCESS_TOKEN: mock_line_channel_access_token_phase1
+      NEXT_PUBLIC_LIFF_ID: 2000000000-xxxxxxx
+      NEXT_PUBLIC_SUPABASE_URL: http://postgres:54322
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.anon_key_mock_local
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.service_role_key_mock_local
+    profiles:
+      - full-stack
