@@ -592,3 +592,72 @@ export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage
     },
   };
 }
+
+/**
+ * Creates Flex Message notifying a user that registration or approval is required before submitting slips
+ */
+export function createMembershipRequiredFlexMessage(
+  liffUrl: string,
+  reason: "NOT_REGISTERED" | "PENDING_APPROVAL"
+): messagingApi.FlexMessage {
+  const isPending = reason === "PENDING_APPROVAL";
+  const title = isPending ? "⏳ บัญชีอยู่ระหว่างรอการอนุมัติ" : "⚠️ กรุณาลงทะเบียนก่อนส่งสลิป";
+  const headerColor = isPending ? "#d97706" : "#e11d48";
+  const bodyText = isPending
+    ? "การสมัครสมาชิกของคุณอยู่ระหว่างรอเจ้าของกลุ่มตรวจสอบและอนุมัติ เมื่อได้รับการอนุมัติแล้วจะสามารถส่งสลิปโอนเงินเข้ากองกลางได้"
+    : "คุณยังไม่ได้ลงทะเบียนเข้าร่วมกองกลางนี้ กรุณากดปุ่มด้านล่างเพื่อเปิด Mini App และลงทะเบียนสมาชิกก่อนส่งสลิปโอนเงิน";
+  const buttonLabel = isPending ? "📱 ตรวจสอบสถานะใน Mini App" : "📱 ลงทะเบียนผ่าน Mini App";
+
+  return {
+    type: "flex",
+    altText: title,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: headerColor,
+        paddingAll: "15px",
+        contents: [
+          {
+            type: "text",
+            text: title,
+            weight: "bold",
+            color: "#ffffff",
+            size: "md",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          {
+            type: "text",
+            text: bodyText,
+            wrap: true,
+            size: "sm",
+            color: "#334155",
+          },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: headerColor,
+            action: {
+              type: "uri",
+              label: buttonLabel,
+              uri: liffUrl,
+            },
+          },
+        ],
+      },
+    },
+  };
+}

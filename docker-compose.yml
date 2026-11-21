@@ -14,8 +14,11 @@ services:
       POSTGRES_PORT: 5432
     volumes:
       - ./.docker/pgdata:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d/migrations
-      - ./supabase/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+      - ./supabase/migrations/00000_supabase_roles.sql:/docker-entrypoint-initdb.d/00_supabase_roles.sql:ro
+      - ./supabase/migrations/00001_initial_schema.sql:/docker-entrypoint-initdb.d/01_initial_schema.sql:ro
+      - ./supabase/migrations/00002_rls_policies.sql:/docker-entrypoint-initdb.d/02_rls_policies.sql:ro
+      - ./supabase/migrations/00003_storage_buckets.sql:/docker-entrypoint-initdb.d/03_storage_buckets.sql:ro
+      - ./supabase/seed.sql:/docker-entrypoint-initdb.d/04_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s

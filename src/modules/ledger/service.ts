@@ -72,6 +72,8 @@ export class LedgerService {
       .single();
 
     if (ledgerError) {
+      // Clean up orphaned transaction to allow clean retry
+      await this.supabase.from("transactions").delete().eq("id", transaction.id);
       throw ledgerError;
     }
 

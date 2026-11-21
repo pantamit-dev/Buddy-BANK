@@ -16,9 +16,10 @@ export async function recognizeSlipImage(
   const timeoutMs = options?.timeoutMs || 30000;
 
   let worker: any = null;
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`OCR processing timed out after ${timeoutMs}ms`)), timeoutMs)
-  );
+  let timer: NodeJS.Timeout | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`OCR processing timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
 
   const processPromise = (async () => {
     try {
@@ -40,5 +41,11 @@ export async function recognizeSlipImage(
     }
   })();
 
-  return await Promise.race([processPromise, timeoutPromise]);
+  try {
+    return await Promise.race([processPromise, timeoutPromise]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }

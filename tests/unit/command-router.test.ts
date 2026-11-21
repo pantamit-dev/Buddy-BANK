@@ -143,6 +143,20 @@ describe("Chat Command Router Unit Tests", () => {
     expect(engResult).not.toBeNull();
   });
 
+  it("returns registration prompt when #ยอดฉัน is sent by unregistered or non-active member", async () => {
+    // Override membership to return null
+    (commandHandler as any).membershipService.getMemberByLineUserId = vi.fn().mockResolvedValue(null);
+
+    const result = await commandHandler.handleCommand({
+      text: "#ยอดฉัน",
+      lineGroupId: "group_123",
+      lineUserId: "user_unknown",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.altText).toContain("คุณยังไม่ได้เป็นสมาชิก");
+  });
+
   it("ignores unknown hash commands silently (e.g. #random_tag)", async () => {
     const result = await commandHandler.handleCommand({
       text: "#ร้านอาหารแนะนำ",

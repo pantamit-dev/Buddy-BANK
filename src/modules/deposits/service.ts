@@ -3,6 +3,7 @@ import { DepositStateMachine } from "./state-machine";
 import { LedgerService } from "@/modules/ledger/service";
 import { MembershipService } from "@/modules/membership/service";
 import { canReviewDeposits } from "@/modules/membership/rbac";
+import { parseSlipDateToIso } from "@/modules/ocr/parser";
 
 export interface CreateDepositInput {
   groupId: string;
@@ -93,7 +94,7 @@ export class DepositService {
         slip_storage_path: storagePath,
         raw_ocr_text: rawOcrText || null,
         detected_amount: detectedAmount || null,
-        transfer_date: transferDate ? new Date(transferDate).toISOString() : null,
+        transfer_date: parseSlipDateToIso(transferDate),
         bank_reference: bankReference || null,
         status: "pending",
         click_count: 0,
@@ -123,7 +124,7 @@ export class DepositService {
     // 1. Fetch deposit to find group_id
     const { data: deposit, error: depErr } = await this.supabase
       .from("deposits")
-      .select("*, group_members!inner(id, user_id)")
+      .select("*")
       .eq("id", depositId)
       .single();
 

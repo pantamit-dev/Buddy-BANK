@@ -145,6 +145,15 @@ describe("Deposit Approval & Idempotency Integration Tests", () => {
             }),
           };
         },
+        delete: () => ({
+          eq: (f1: string, v1: any) => {
+            const idx = (mockDatabase as any)[table]?.findIndex((row: any) => row[f1] === v1);
+            if (idx !== -1) {
+              (mockDatabase as any)[table]?.splice(idx, 1);
+            }
+            return Promise.resolve({ error: null });
+          },
+        }),
       }),
       storage: {
         from: () => ({
@@ -209,5 +218,61 @@ describe("Deposit Approval & Idempotency Integration Tests", () => {
     // Verify deposit remains pending
     const dep = mockDatabase.deposits.find((d) => d.id === "dep-001");
     expect(dep.status).toBe("pending");
+  });
+
+  it("handles Thai slip dates in createPendingDeposit without throwing RangeError", async () => {
+    const depositService = new DepositService(mockSupabase);
+
+    const newDep = await depositService.createPendingDeposit({
+      groupId: "g-1",
+      memberId: "gm-member",
+      imageBuffer: Buffer.from("mock_image"),
+      rawOcrText: "จำนวนเงิน 500 บาท วันที่ 21 พ.ย. 2569 14:30:15",
+      detectedAmount: 500.0,
+      transferDate: "21 พ.ย. 2569 14:30:15",
+      bankReference: "REF_NEW_THAI_001",
+    });
+
+    expect(newDep).toBeDefined();
+    expect(newDep.status).toBe("pending");
+    expect(newDep.transfer_date).toContain("2026-11-21");
+  });
+
+  it("safely handles unparseable transfer dates in createPendingDeposit", async () => {
+    const depositService = new DepositService(mockSupabase);
+
+    const newDep = await depositService.createPendingDeposit({
+      groupId: "g-1",
+      memberId: "gm-member",
+      imageBuffer: Buffer.from("mock_image"),
+      rawOcrText: "สลิปไม่มีวันที่",
+      detectedAmount: 300.0,
+      transferDate: "วันที่ไม่ชัดเจน",
+      bankReference: "REF_NEW_NODATE_002",
+    });
+
+    expect(newDep).toBeDefined();
+    expect(newDep.transfer_date).toBeNull();
+  });
+
+  it("rejects approval when deposit has zero or invalid amount", async () => {
+    const depositService = new DepositService(mockSupabase);
+
+    mockDatabase.deposits.push({
+      id: "dep-no-amount",
+      group_id: "g-1",
+      member_id: "gm-member",
+      status: "pending",
+      detected_amount: null,
+      click_count: 0,
+    });
+
+    await expect(
+      depositService.reviewDeposit({
+        depositId: "dep-no-amount",
+        action: "approve",
+        reviewerLineUserId: "U_OWNER",
+      })
+    ).rejects.toThrow(/Cannot approve deposit with zero or invalid amount/);
   });
 });

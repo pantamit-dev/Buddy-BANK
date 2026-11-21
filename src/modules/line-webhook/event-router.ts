@@ -10,7 +10,9 @@ import {
   createSlipReviewFlexMessage,
   createDepositApprovedFlexMessage,
   createDuplicateSlipFlexMessage,
+  createMembershipRequiredFlexMessage,
 } from "./flex-templates";
+import { canReviewDeposits, canSubmitSlips } from "@/modules/membership/rbac";
 import { createAdminClient } from "@/integrations/supabase/server";
 
 export class LineEventRouter {
@@ -193,36 +195,27 @@ export class LineEventRouter {
       return { success: false, reason: "Group not registered" };
     }
 
-    // 2. Resolve or Verify Member
-    let member = userId
+    // 2. Resolve or Verify Member (Strict Onboarding Gate - Goal G2)
+    const member = userId
       ? await this.membershipService.getMemberByLineUserId(group.id, userId)
       : null;
 
-    if (!member) {
-      // Auto-onboard member if possible, or fetch profile from LINE
-      let displayName = "สมาชิก";
-      let pictureUrl: string | null = null;
+    if (!member || !canSubmitSlips(member.status)) {
+      const liffUrl = process.env.NEXT_PUBLIC_LIFF_ID
+        ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`
+        : "https://line.me";
 
-      if (userId) {
-        const lineProfile = await this.lineClient.getGroupMemberProfile(
-          lineGroupId,
-          userId
+      if (replyToken) {
+        const notApprovedFlex = createMembershipRequiredFlexMessage(
+          liffUrl,
+          !member ? "NOT_REGISTERED" : "PENDING_APPROVAL"
         );
-        if (lineProfile) {
-          displayName = lineProfile.displayName;
-          pictureUrl = lineProfile.pictureUrl || null;
-        }
-        member = await this.membershipService.onboardMember({
-          groupId: group.id,
-          lineUserId: userId,
-          displayName,
-          pictureUrl,
-        });
+        await this.lineClient.replyMessage(replyToken, [notApprovedFlex]);
       }
-    }
-
-    if (!member) {
-      return { success: false, reason: "Unable to identify member" };
+      return {
+        success: false,
+        reason: !member ? "MEMBER_NOT_REGISTERED" : "MEMBER_NOT_ACTIVE",
+      };
     }
 
     // 3. Immediately trigger loading animation in group chat
@@ -307,11 +300,61 @@ export class LineEventRouter {
       await this.lineClient.showLoadingAnimation(chatId, 20);
     }
 
-    // 2. Perform atomic review decision
+    const reviewerUserId = source.userId;
+    if (!reviewerUserId) {
+      return { success: false, reason: "Reviewer user ID missing" };
+    }
+
+    // 2. Fetch deposit to inspect group and amount
+    const { data: deposit } = await this.supabase
+      .from("deposits")
+      .select("id, group_id, detected_amount, status")
+      .eq("id", depositId)
+      .maybeSingle();
+
+    if (!deposit) {
+      return { success: false, reason: "Deposit not found" };
+    }
+
+    // 3. Authorization check
+    const reviewerMember = await this.membershipService.getMemberByLineUserId(
+      deposit.group_id,
+      reviewerUserId
+    );
+
+    if (!reviewerMember || !canReviewDeposits(reviewerMember.role)) {
+      if (replyToken) {
+        await this.lineClient.replyMessage(replyToken, [
+          {
+            type: "text",
+            text: "⚠️ ขออภัย เฉพาะเจ้าของกลุ่มหรือเหรัญญิกเท่านั้นที่มีสิทธิ์อนุมัติหรือปฏิเสธสลิป",
+          },
+        ]);
+      }
+      return { success: false, reason: "UNAUTHORIZED_REVIEWER" };
+    }
+
+    // 4. Missing amount guard
+    if (
+      action === "approve" &&
+      (!deposit.detected_amount || Number(deposit.detected_amount) <= 0)
+    ) {
+      if (replyToken) {
+        await this.lineClient.replyMessage(replyToken, [
+          {
+            type: "text",
+            text: "⚠️ ไม่สามารถอนุมัติได้เนื่องจากตรวจไม่พบยอดเงินในสลิป\nกรุณาเปิดหน้า 'ตรวจสลิป' ใน Mini App เพื่อระบุจำนวนเงินด้วยตนเอง",
+          },
+        ]);
+      }
+      return { success: false, reason: "AMOUNT_REQUIRED" };
+    }
+
+    // 5. Perform atomic review decision
     const result = await this.depositService.reviewDeposit({
       depositId,
       action,
-      reviewerLineUserId: source.userId,
+      reviewerLineUserId: reviewerUserId,
     });
 
     if (!result.success) {
@@ -319,7 +362,7 @@ export class LineEventRouter {
       return { success: false, message: result.message };
     }
 
-    // 3. If approved, reply with confirmation Flex card
+    // 6. If approved, reply with confirmation Flex card
     if (action === "approve" && result.ledger && replyToken) {
       const confirmFlex = createDepositApprovedFlexMessage({
         amount: Number(result.deposit.detected_amount),

@@ -5,6 +5,7 @@ import {
   extractDate,
   extractBankReference,
   detectBankName,
+  parseSlipDateToIso,
 } from "@/modules/ocr/parser";
 
 describe("OCR Slip Parser Unit Tests", () => {
@@ -33,6 +34,35 @@ describe("OCR Slip Parser Unit Tests", () => {
       expect(amount).toBe(12000.0);
     });
 
+    it("extracts integer amounts with Thai Baht suffix without decimals", () => {
+      const text = "โอนเงินสำเร็จ 500 บาท รหัส 123456789";
+      const amount = extractAmount(text);
+      expect(amount).toBe(500.0);
+    });
+
+    it("extracts amount with Thai currency symbol ฿", () => {
+      const text = "พร้อมเพย์ สำเร็จ ยอด ฿ 1,250";
+      const amount = extractAmount(text);
+      expect(amount).toBe(1250.0);
+    });
+
+    it("extracts amount when zero fee appears before transfer amount", () => {
+      const text = `
+        ธนาคารไทยพาณิชย์
+        ค่าธรรมเนียม 0.00 บาท
+        จำนวนเงิน 2,500.00 บาท
+        รหัสอ้างอิง SCB001122
+      `;
+      const amount = extractAmount(text);
+      expect(amount).toBe(2500.0);
+    });
+
+    it("extracts floating amount without thousands comma", () => {
+      const text = "ยอดโอน 500.00 บาท";
+      const amount = extractAmount(text);
+      expect(amount).toBe(500.0);
+    });
+
     it("returns null when no valid amount is present", () => {
       const text = "สวัสดีครับ ขอแจ้งเลขบัญชีสำหรับโอนเงิน";
       const amount = extractAmount(text);
@@ -47,6 +77,12 @@ describe("OCR Slip Parser Unit Tests", () => {
       expect(date).toBe("21 พ.ย. 2569 14:30:15");
     });
 
+    it("extracts Thai date with full month name", () => {
+      const text = "วันที่ 21 พฤศจิกายน 2567 14:30 โอนสำเร็จ";
+      const date = extractDate(text);
+      expect(date).toBe("21 พฤศจิกายน 2567 14:30");
+    });
+
     it("extracts slash formatted date", () => {
       const text = "Date: 21/11/2026 10:15";
       const date = extractDate(text);
@@ -57,6 +93,44 @@ describe("OCR Slip Parser Unit Tests", () => {
       const text = "โอนเงินเสร็จสิ้น ยอด 500 บาท";
       const date = extractDate(text);
       expect(date).toBeNull();
+    });
+  });
+
+  describe("parseSlipDateToIso", () => {
+    it("parses Thai Buddhist Era date to valid ISO timestamp without throwing RangeError", () => {
+      const iso = parseSlipDateToIso("21 พ.ย. 2569 14:30:15");
+      expect(iso).not.toBeNull();
+      expect(iso).toContain("2026-11-21");
+    });
+
+    it("parses Thai short year e.g. 67 to 2024", () => {
+      const iso = parseSlipDateToIso("21 พ.ย. 67 11:30");
+      expect(iso).not.toBeNull();
+      expect(iso).toContain("2024-11-21");
+    });
+
+    it("parses Thai full month name e.g. 21 พฤศจิกายน 2567", () => {
+      const iso = parseSlipDateToIso("21 พฤศจิกายน 2567 10:00");
+      expect(iso).not.toBeNull();
+      expect(iso).toContain("2024-11-21");
+    });
+
+    it("parses slash DD/MM/YYYY date", () => {
+      const iso = parseSlipDateToIso("21/11/2026 12:10");
+      expect(iso).not.toBeNull();
+      expect(iso).toContain("2026-11-21");
+    });
+
+    it("parses English month date", () => {
+      const iso = parseSlipDateToIso("21 Nov 2026 10:15");
+      expect(iso).not.toBeNull();
+      expect(iso).toContain("2026-11-21");
+    });
+
+    it("returns null gracefully on empty or invalid date strings without throwing", () => {
+      expect(parseSlipDateToIso("")).toBeNull();
+      expect(parseSlipDateToIso(null)).toBeNull();
+      expect(parseSlipDateToIso("ข้อความไม่ใช่เวลา")).toBeNull();
     });
   });
 

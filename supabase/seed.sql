@@ -21,24 +21,24 @@ ON CONFLICT (id) DO NOTHING;
 -- Group Members
 INSERT INTO public.group_members (id, group_id, user_id, role, status)
 VALUES
-    ('gm111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'owner', 'active'),
-    ('gm222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'treasurer', 'active'),
-    ('gm333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'member', 'active'),
-    ('gm444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'member', 'pending_approval')
+    ('ba111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'owner', 'active'),
+    ('ba222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'treasurer', 'active'),
+    ('ba333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'member', 'active'),
+    ('ba444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'member', 'pending_approval')
 ON CONFLICT (id) DO NOTHING;
 
 -- Initial Verified Deposit & Ledger Entries
 INSERT INTO public.deposits (id, group_id, member_id, slip_storage_path, raw_ocr_text, detected_amount, transfer_date, bank_reference, status, click_count, reviewed_by, reviewed_at)
 VALUES
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'gm333333-3333-3333-3333-333333333333', 'slips/sample_slip_01.jpg', 'โอนเงินสำเร็จ 2,500.00 บาท วันที่ 21/11/2026 รหัสอ้างอิง KBANK20261121001', 2500.00, NOW() - INTERVAL '1 hour', 'KBANK20261121001', 'verified', 1, '22222222-2222-2222-2222-222222222222', NOW() - INTERVAL '50 minute')
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ba333333-3333-3333-3333-333333333333', 'slips/sample_slip_01.jpg', 'โอนเงินสำเร็จ 2,500.00 บาท วันที่ 21/11/2026 รหัสอ้างอิง KBANK20261121001', 2500.00, NOW() - INTERVAL '1 hour', 'KBANK20261121001', 'verified', 1, '22222222-2222-2222-2222-222222222222', NOW() - INTERVAL '50 minute')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.transactions (id, group_id, deposit_id, amount, transaction_type, confirmed_at)
 VALUES
-    ('tttttttt-tttt-tttt-tttt-tttttttttttt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 2500.00, 'deposit', NOW() - INTERVAL '50 minute')
+    ('ee111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 2500.00, 'deposit', NOW() - INTERVAL '50 minute')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.ledger_entries (id, transaction_id, group_id, member_id, entry_type, amount, running_balance, created_at)
 VALUES
-    ('llllllll-llll-llll-llll-llllllllllll', 'tttttttt-tttt-tttt-tttt-tttttttttttt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'gm333333-3333-3333-3333-333333333333', 'credit', 2500.00, 2500.00, NOW() - INTERVAL '50 minute')
+    ('ee222222-2222-2222-2222-222222222222', 'ee111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ba333333-3333-3333-3333-333333333333', 'credit', 2500.00, 2500.00, NOW() - INTERVAL '50 minute')
 ON CONFLICT (id) DO NOTHING;

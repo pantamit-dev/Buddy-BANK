@@ -83,8 +83,53 @@ export class CommandHandler {
         lineUserId
       );
 
-      if (!member) {
-        return null;
+      if (!member || member.status !== "active") {
+        return {
+          type: "flex",
+          altText: "คุณยังไม่ได้เป็นสมาชิกของกองกลางนี้",
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              contents: [
+                {
+                  type: "text",
+                  text: "⚠️ ตรวจสอบสถานะสมาชิก",
+                  weight: "bold",
+                  color: "#d97706",
+                  size: "md",
+                },
+                {
+                  type: "text",
+                  text: member?.status === "pending_approval"
+                    ? "การสมัครสมาชิกของคุณอยู่ระหว่างรอเจ้าของกลุ่มอนุมัติ จึงยังไม่สามารถดูยอดสะสมได้"
+                    : "คุณยังไม่ได้ลงทะเบียนเป็นสมาชิกในกลุ่มนี้ กรุณากดลงทะเบียนผ่าน Mini App ก่อนตรวจสอบยอด",
+                  size: "xs",
+                  color: "#475569",
+                  wrap: true,
+                },
+              ],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "button",
+                  style: "primary",
+                  color: "#059669",
+                  action: {
+                    type: "uri",
+                    label: "📱 เปิดระบบ Mini App",
+                    uri: liffUrl,
+                  },
+                },
+              ],
+            },
+          },
+        };
       }
 
       const summary = await this.ledgerService.getGroupBalanceSummary(group.id);
