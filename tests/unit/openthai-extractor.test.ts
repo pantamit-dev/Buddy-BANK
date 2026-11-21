@@ -84,6 +84,7 @@ describe("OpenThai 2.1 Slip Extractor", () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("Connection refused"));
 
     const result = await extractSlipWithOpenThai(realImageBuffer, {
+      ocrUrl: "http://127.0.0.1:8001/ocr",
       pythonPath: "non_existent_python_binary_xyz",
     });
 
