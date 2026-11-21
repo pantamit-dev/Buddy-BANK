@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateLineSignature } from "@/modules/line-webhook/signature";
 import { LineEventRouter } from "@/modules/line-webhook/event-router";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 const eventRouter = new LineEventRouter();
 
 export async function POST(req: NextRequest) {
