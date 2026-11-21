@@ -1,5 +1,5 @@
 import type { messagingApi } from "@line/bot-sdk";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatThaiDate } from "@/lib/utils";
 
 /**
  * Creates the Welcome & Onboarding Flex Message when the bot joins or introduces itself
@@ -169,7 +169,17 @@ export function createSlipReviewFlexMessage(params: {
             layout: "horizontal",
             contents: [
               { type: "text", text: "วันที่/เวลา", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: transferDate || "-", size: "xs", color: "#334155", flex: 3 },
+              {
+                type: "text",
+                text: transferDate
+                  ? transferDate.includes("T")
+                    ? formatThaiDate(transferDate)
+                    : transferDate
+                  : "-",
+                size: "xs",
+                color: "#334155",
+                flex: 3,
+              },
             ],
           },
           {
