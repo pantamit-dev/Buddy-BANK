@@ -40,6 +40,28 @@ describe("OCR Slip Parser Unit Tests", () => {
       expect(amount).toBe(500.0);
     });
 
+    it("parses Krungthai real slip text accurately", () => {
+      const raw = `Krungthai
+ทรุงไทย
+โอนเงินสำเร็จ
+รหัสอ้างอิง Ab46c69223d45424c
+จาก
+นายพันธมิตร ส
+กรุงไทย
+XXX-X-XX677-8
+ไปยัง
+นาย พันธมิตร สำเภามาตา
+พร้อมเพย์
+XXX XXX 5545
+จำนวนเงิน 3,000.00 บาท
+ค่าธรรมเนียม 0.00 บาท
+วันที่ทำรายการ 21 พ.ย. 2569-20:09`;
+      const res = parseBankSlipText(raw);
+      expect(res.amount).toBe(3000.0);
+      expect(res.bankReference).toBe("Ab46c69223d45424c");
+      expect(res.bankName).toBe("KTB");
+    });
+
     it("extracts amount with Thai currency symbol ฿", () => {
       const text = "พร้อมเพย์ สำเร็จ ยอด ฿ 1,250";
       const amount = extractAmount(text);
