@@ -30,6 +30,8 @@ services:
     image: supabase/gotrue:v2.158.1
     container_name: bank_buddy_auth
     restart: unless-stopped
+    profiles:
+      - auth
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,15 +78,35 @@ services:
       dockerfile: Dockerfile
     container_name: bank_buddy_app
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      LINE_CHANNEL_SECRET: mock_line_channel_secret_phase1
-      LINE_CHANNEL_ACCESS_TOKEN: mock_line_channel_access_token_phase1
-      NEXT_PUBLIC_LIFF_ID: 2000000000-xxxxxxx
-      NEXT_PUBLIC_SUPABASE_URL: http://postgres:54322
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.anon_key_mock_local
-      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.service_role_key_mock_local
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET:-68e1e1c446cf534f14b279406c7d3d10}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-pc2UoW/kXNN/n2mjiEsa7AVjTvoq8p3BSeh7BrTztlZRB57qHIvmKw83wKTqzQX5c+Zy6F2XD0lWF/1K7XchBVCsJV/r+chLnAjj4iLnfQ4cUCJ/c871UiZqZmLX5Uc4QIM/k9eMq4ttjzIhHRHvNAdB04t89/1O/w1cDnyilFU=}
+      NEXT_PUBLIC_LIFF_ID: ${NEXT_PUBLIC_LIFF_ID:-2012736050-zDBeDeQU}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://127.0.0.1:54322}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.anon_key_mock_local}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.service_role_key_mock_local}
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres?sslmode=disable
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: bank_buddy_ngrok
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    command:
+      - "http"
+      - "app:3000"
+    ports:
+      - "4040:4040"
     profiles:
-      - full-stack
+      - ngrok
