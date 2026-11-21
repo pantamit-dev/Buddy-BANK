@@ -24,7 +24,7 @@ const LiffContext = createContext<LiffContextType>({
   isLoggedIn: false,
   isInClient: false,
   profile: null,
-  groupId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  groupId: "",
   setGroupId: () => {},
   isRegistered: false,
   isRegistering: false,
@@ -42,7 +42,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
     displayName: string;
     pictureUrl?: string;
   } | null>(null);
-  const [groupId, setGroupId] = useState("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  const [groupId, setGroupId] = useState("");
   const [isRegistered, setIsRegistered] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -75,16 +75,28 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
             lineUserId: profile.userId,
             displayName: finalName,
             pictureUrl: profile.pictureUrl,
-            groupId: groupId !== "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" ? groupId : undefined,
+            groupId: groupId || undefined,
           }),
         });
 
         const data = await res.json();
         if (res.ok && data.success) {
           setIsRegistered(true);
-          setProfile((prev) =>
-            prev ? { ...prev, displayName: finalName } : null
-          );
+          const updatedProfile = {
+            userId: profile.userId,
+            displayName: finalName,
+            pictureUrl: profile.pictureUrl,
+          };
+          setProfile(updatedProfile);
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("bank_buddy_profile", JSON.stringify(updatedProfile));
+            if (data.member?.group_id) {
+              setGroupId(data.member.group_id);
+              localStorage.setItem("bank_buddy_group_id", data.member.group_id);
+            }
+          }
+
           return {
             success: true,
             message: data.message || "ลงทะเบียนสำเร็จ",
@@ -108,29 +120,83 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    // Check URL parameters for groupId or lineGroupId
+    let activeGroupId = "";
+
+    // 1. Check URL parameters
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const urlGroupId = urlParams.get("groupId");
       const urlLineGroupId = urlParams.get("lineGroupId");
 
       if (urlGroupId) {
+        activeGroupId = urlGroupId;
         setGroupId(urlGroupId);
+        localStorage.setItem("bank_buddy_group_id", urlGroupId);
       } else if (urlLineGroupId) {
         fetch(`/api/groups?lineGroupId=${encodeURIComponent(urlLineGroupId)}`)
           .then((res) => res.json())
           .then((data) => {
             if (data?.group?.id) {
               setGroupId(data.group.id);
+              localStorage.setItem("bank_buddy_group_id", data.group.id);
             }
           })
           .catch((err) =>
             console.warn("[LiffProvider] Failed to resolve lineGroupId:", err)
           );
+      } else {
+        const savedGroupId = localStorage.getItem("bank_buddy_group_id");
+        if (savedGroupId) {
+          activeGroupId = savedGroupId;
+          setGroupId(savedGroupId);
+        }
+      }
+
+      // Check saved local profile
+      const savedProfile = localStorage.getItem("bank_buddy_profile");
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          if (parsed?.userId) {
+            setProfile(parsed);
+            setIsRegistered(true);
+          }
+        } catch {
+          // ignore corrupted local storage
+        }
       }
     }
 
-    // Initialize LIFF or Fallback Mock in Browser
+    // 2. Discover Real Active Group from Backend
+    fetch("/api/groups" + (activeGroupId ? `?groupId=${activeGroupId}` : ""))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.group?.id) {
+          setGroupId(data.group.id);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("bank_buddy_group_id", data.group.id);
+          }
+
+          // If in external browser and no saved profile, auto-adopt owner's profile
+          if (
+            data.group?.profiles?.line_user_id &&
+            typeof window !== "undefined" &&
+            !localStorage.getItem("bank_buddy_profile")
+          ) {
+            const ownerProf = {
+              userId: data.group.profiles.line_user_id,
+              displayName: data.group.profiles.display_name,
+              pictureUrl: data.group.profiles.picture_url,
+            };
+            setProfile(ownerProf);
+            setIsRegistered(true);
+            localStorage.setItem("bank_buddy_profile", JSON.stringify(ownerProf));
+          }
+        }
+      })
+      .catch((e) => console.warn("[LiffProvider] Auto group discovery:", e));
+
+    // 3. Initialize LIFF
     const initLiff = async () => {
       try {
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -151,9 +217,14 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
               pictureUrl: p.pictureUrl,
             };
             setProfile(realProfile);
+            setIsRegistered(true);
             setIsInitialized(true);
 
-            // Auto-sync profile to Supabase on login
+            if (typeof window !== "undefined") {
+              localStorage.setItem("bank_buddy_profile", JSON.stringify(realProfile));
+            }
+
+            // Sync with backend
             fetch("/api/auth/register-profile", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -162,14 +233,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
                 displayName: p.displayName,
                 pictureUrl: p.pictureUrl,
               }),
-            })
-              .then((res) => res.json())
-              .then((data) => {
-                if (data.success) {
-                  setIsRegistered(true);
-                }
-              })
-              .catch((e) => console.warn("[LiffProvider] Background sync error:", e));
+            }).catch((e) => console.warn("[LiffProvider] Sync error:", e));
 
             return;
           }
@@ -178,12 +242,6 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         console.warn("[LiffProvider] LIFF init skipped or fallback mock active:", e);
       }
 
-      // Default mock profile for local development & browser preview
-      setProfile({
-        userId: "U_OWNER_001",
-        displayName: "Alice (Owner)",
-        pictureUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=Alice",
-      });
       setIsInitialized(true);
     };
 

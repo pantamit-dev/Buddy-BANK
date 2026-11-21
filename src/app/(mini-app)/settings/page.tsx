@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/sha
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Badge } from "@/shared/components/ui/badge";
-import { Settings, Save, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Settings, Save, ShieldAlert, CheckCircle2, UserCheck } from "lucide-react";
 
 export default function SettingsPage() {
-  const { profile, groupId } = useLiff();
+  const { profile, groupId, setGroupId } = useLiff();
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [loading, setLoading] = useState(true);
@@ -20,11 +20,17 @@ export default function SettingsPage() {
     async function loadSettings() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/groups?groupId=${groupId}`);
+        const url = "/api/groups" + (groupId ? `?groupId=${groupId}` : "");
+        const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
-          setName(json.group?.name || "");
-          setTargetAmount(String(json.group?.target_amount || "0"));
+          if (json.group) {
+            setName(json.group.name || "");
+            setTargetAmount(String(json.group.target_amount || "0"));
+            if (json.group.id && json.group.id !== groupId) {
+              setGroupId(json.group.id);
+            }
+          }
         }
       } catch (e) {
         console.error("Failed to load settings:", e);
@@ -33,10 +39,8 @@ export default function SettingsPage() {
       }
     }
 
-    if (groupId) {
-      loadSettings();
-    }
-  }, [groupId]);
+    loadSettings();
+  }, [groupId, setGroupId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,10 +52,10 @@ export default function SettingsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          groupId,
+          groupId: groupId || undefined,
           name,
           targetAmount: Number(targetAmount),
-          actorLineUserId: profile?.userId || "U_OWNER_001",
+          actorLineUserId: profile?.userId || "U000ec61a0cfa63d6b163c764f7793c15",
         }),
       });
 
@@ -71,6 +75,24 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Current Operator Status */}
+      <Card className="bg-slate-50 border-slate-200">
+        <CardContent className="p-3 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div>
+              <span className="text-slate-500">ผู้ดำเนินการ: </span>
+              <span className="font-bold text-slate-800">
+                {profile?.displayName || "Save"}
+              </span>
+            </div>
+          </div>
+          <Badge variant="success" className="text-[10px] px-2 py-0.5">
+            สิทธิ์ Owner
+          </Badge>
+        </CardContent>
+      </Card>
+
       <Card className="bg-white border-slate-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -125,7 +147,7 @@ export default function SettingsPage() {
               <Button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-xs h-9 gap-1.5 font-semibold"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 gap-1.5 font-semibold"
               >
                 <Save className="w-4 h-4" />
                 {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
