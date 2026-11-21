@@ -54,14 +54,17 @@ Bank Buddy includes a specialized local Thai OCR engine powered by OpenThai 2.1 
 # 1. Create Python 3.12 virtualenv and install dependencies via uv
 npm run ocr:setup
 
-# 2. All-in-One: Start OCR Server + ngrok Tunnel (Auto-sync to Supabase & Vercel) + Next.js App
+# 2. Place ngrok.exe in the project root and add your authtoken:
+# .\ngrok.exe config add-authtoken <your-authtoken>
+
+# 3. All-in-One Runner: Start OCR Server + ngrok Tunnel (Auto-sync to Supabase & Vercel) + Next.js App
 npm run dev:all
 
 # Or run in production mode:
 npm run build && npm run start:all
 ```
 
-*Note: The All-in-One runner automatically detects `ngrok.exe` in the root folder, retrieves the live public URL, updates Supabase `system_settings` for Vercel, and starts the Next.js web application.*
+*Note: The All-in-One runner automatically detects `ngrok.exe` in the root folder, retrieves the live public URL, updates Supabase `system_settings` for Vercel, and starts the Next.js web application. If `ngrok.exe` is absent, it seamlessly falls back to Cloudflare Tunnel (`cloudflared`).*
 
 ### 5. Run Development Server
 
