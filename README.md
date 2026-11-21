@@ -76,3 +76,4 @@ npm test
 # Run TypeScript type check
 npm run type-check
 ```
+# Buddy-BANK
