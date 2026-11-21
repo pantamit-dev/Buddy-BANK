@@ -180,6 +180,24 @@ XXX XXX 5545
       const ref = extractBankReference(text);
       expect(ref).toBe("202611210000123456");
     });
+
+    it("extracts KBank reference when OCR misreads 'เลขที่รายการ' as 'เลยที่รายการะ' with 'สแกน'", () => {
+      const text = "เลยที่รายการะ\nสแกน\n016322182344CPM18917 ตรวจสอบสลิป";
+      const ref = extractBankReference(text);
+      expect(ref).toBe("016322182344CPM18917");
+    });
+
+    it("extracts Krungthai alphanumeric hash reference", () => {
+      const text = "โอนเงินสำเร็จ\nรหัสอ้างอิง Ab46c69223d45424c\nกรุงไทย";
+      const ref = extractBankReference(text);
+      expect(ref).toBe("Ab46c69223d45424c");
+    });
+
+    it("extracts standalone KBank transaction ID without label", () => {
+      const text = "016322182344CPM18917 โอนเงิน 100 บาท";
+      const ref = extractBankReference(text);
+      expect(ref).toBe("016322182344CPM18917");
+    });
   });
 
   describe("Bank Name Detection", () => {

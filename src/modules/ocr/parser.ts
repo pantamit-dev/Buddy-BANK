@@ -240,15 +240,24 @@ export function parseSlipDateToIso(dateStr?: string | null): string | null {
 
 /**
  * Extracts bank transaction reference number
+ * Handles:
+ * - Common labels: รหัสอ้างอิง, เลขที่รายการ, หมายเลขอ้างอิง, Ref No., Transaction ID
+ * - OCR misreadings of Thai label: เล[ขบยง]ที่รายการ, เลยที่รายการะ, etc.
+ * - Intermediate words between label and number (e.g. "สแกน", "ตรวจสอบสลิป", "QR")
+ * - KBank style transaction IDs (e.g. 016322182344CPM18917)
+ * - Standalone alphanumeric transaction IDs containing letters and digits (15-30 chars)
+ * - Standalone long numeric transaction IDs (12-25 digits)
  */
 export function extractBankReference(text: string): string | null {
-  // Patterns:
-  // "รหัสอ้างอิง: 20261121001"
-  // "เลขที่รายการ: 0123456789"
-  // "Ref No. / Transaction ID: ..."
   const refPatterns = [
-    /(?:รหัสอ้างอิง|เลขที่รายการ|หมายเลขอ้างอิง|ref(?:\s*no\.?|\s*id)?|transaction\s*id)\s*[:=]?\s*([A-Za-z0-9_-]{6,35})/i,
-    /\b([0-9]{12,25})\b/, // Raw long bank transaction ID
+    // 1. Label followed by reference (supporting OCR typos: เลยที่, เลบที่, ะ separator, and intermediate words like สแกน/qr)
+    /(?:รหัสอ้างอิง|เล[ขบยง]ที่\s*รายการ|เล[ขบยง]รายการ|หมายเลขอ้างอิง|รหัสรายการ|เล[ขบยง]ที่|ref(?:\s*no\.?|\s*id)?|transaction\s*(?:id|no\.?)|trans\s*id|tx(?:id)?)[\s:=ะ.-]*(?:(?:สแกน|qr|ตรวจสอบสลิป|scan)[\s:=ะ.-]*)*([A-Za-z0-9_-]{6,35})/i,
+    // 2. KBank style transaction ID: starts with 01-09 + digits + alphanumeric (length 16-25, e.g. 016322182344CPM18917)
+    /\b(0[1-9]\d{8,14}[A-Za-z0-9]{4,12})\b/,
+    // 3. Standalone alphanumeric transaction ID containing both letters and digits (length 15-30, e.g. Krungthai Ab46c69223d45424c)
+    /\b(?=[A-Za-z0-9]{15,30}\b)(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]+\b/,
+    // 4. Raw long bank numeric transaction ID (12-25 digits)
+    /\b([0-9]{12,25})\b/,
   ];
 
   for (const regex of refPatterns) {
