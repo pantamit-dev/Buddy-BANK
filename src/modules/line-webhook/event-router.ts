@@ -5,6 +5,7 @@ import { DepositService } from "@/modules/deposits/service";
 import { MembershipService } from "@/modules/membership/service";
 import { recognizeSlipImage } from "@/modules/ocr/tesseract-worker";
 import { parseBankSlipText } from "@/modules/ocr/parser";
+import { extractSlipWithGeminiVision } from "@/modules/ocr/gemini-extractor";
 import {
   createWelcomeFlexMessage,
   createSlipReviewFlexMessage,
@@ -243,25 +244,52 @@ export class LineEventRouter {
     // 4. Download slip image from LINE
     const imageBuffer = await this.lineClient.getMessageContent(messageId);
 
-    // 5. Run OCR and regex parser
+    // 5. Extract Slip Data (Primary: Gemini Vision API, Fallback: Local Tesseract OCR)
     let rawOcrText = "";
-    try {
-      rawOcrText = await recognizeSlipImage(imageBuffer);
-    } catch (ocrErr) {
-      console.warn("[LineEventRouter] Local OCR failed or timed out:", ocrErr);
+    let detectedAmount: number | null = null;
+    let transferDate: string | null = null;
+    let bankReference: string | null = null;
+
+    // A) Try Gemini Multimodal Vision first if API key configured (1-2s, highly accurate on Thai bank slips)
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const geminiResult = await extractSlipWithGeminiVision(imageBuffer);
+        if (geminiResult) {
+          rawOcrText = geminiResult.rawText || "";
+          detectedAmount = geminiResult.amount;
+          transferDate = geminiResult.transferDate;
+          bankReference = geminiResult.bankReference;
+        }
+      } catch (geminiErr) {
+        console.warn("[LineEventRouter] Gemini Vision extraction error, falling back to local OCR:", geminiErr);
+      }
     }
 
-    const parsed = parseBankSlipText(rawOcrText);
+    // B) Fallback to local Tesseract OCR if Gemini did not detect or is not configured
+    if (!detectedAmount && !bankReference) {
+      try {
+        const localText = await recognizeSlipImage(imageBuffer, { timeoutMs: 8000 });
+        if (localText) {
+          rawOcrText = localText;
+          const parsed = parseBankSlipText(localText);
+          detectedAmount = parsed.amount;
+          transferDate = parsed.transferDate;
+          bankReference = parsed.bankReference;
+        }
+      } catch (ocrErr) {
+        console.warn("[LineEventRouter] Local Tesseract OCR failed or timed out:", ocrErr);
+      }
+    }
 
     // 6. Check for duplicate bank reference
-    if (parsed.bankReference) {
+    if (bankReference) {
       const isDuplicate = await this.depositService.checkDuplicateReference(
         group.id,
-        parsed.bankReference
+        bankReference
       );
       if (isDuplicate) {
         if (replyToken) {
-          const dupFlex = createDuplicateSlipFlexMessage(parsed.bankReference);
+          const dupFlex = createDuplicateSlipFlexMessage(bankReference);
           await this.lineClient.replyMessage(replyToken, [dupFlex]);
         }
         return { success: false, reason: "DUPLICATE_SLIP" };
@@ -274,9 +302,9 @@ export class LineEventRouter {
       memberId: member.memberId,
       imageBuffer,
       rawOcrText,
-      detectedAmount: parsed.amount,
-      transferDate: parsed.transferDate,
-      bankReference: parsed.bankReference,
+      detectedAmount,
+      transferDate,
+      bankReference,
     });
 
     // 8. Reply with interactive Flex Message Card
@@ -285,9 +313,9 @@ export class LineEventRouter {
         depositId: deposit.id,
         groupId: group.id,
         uploaderName: member.displayName,
-        amount: parsed.amount,
-        transferDate: parsed.transferDate,
-        bankReference: parsed.bankReference,
+        amount: detectedAmount,
+        transferDate: transferDate,
+        bankReference: bankReference,
       });
 
       await this.lineClient.replyMessage(replyToken, [reviewFlex]);
