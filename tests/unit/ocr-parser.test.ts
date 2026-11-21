@@ -256,5 +256,128 @@ XXX XXX 5545
       expect(result.bankReference).toBeNull();
       expect(result.bankName).toBeNull();
     });
+
+    it("parses 7 major Thai bank slips accurately from infographic specifications", () => {
+      // 1. KBank (Kasikorn)
+      const kbank = parseBankSlipText(`
+        โอนเงินสำเร็จ K+
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย กสิกร รักไทย ธ.กสิกรไทย xxx-x-x1234-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        เลขที่รายการ: 012345103012345678
+        สแกนตรวจสอบสลิป
+      `);
+      expect(kbank.bankName).toBe("KBank");
+      expect(kbank.amount).toBe(5000.0);
+      expect(kbank.transferDate).toBe("12 มี.ค. 2566 - 10:30 น.");
+      expect(kbank.bankReference).toBe("012345103012345678");
+
+      // 2. SCB (Siam Commercial Bank)
+      const scb = parseBankSlipText(`
+        โอนเงินสำเร็จ SCB
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย ไทยพาณิชย์ ดีดี ธ.ไทยพาณิชย์ xxx-x-x1111-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        รหัสอ้างอิง: 202603121030123456
+        สแกนตรวจสอบสลิป
+      `);
+      expect(scb.bankName).toBe("SCB");
+      expect(scb.amount).toBe(5000.0);
+      expect(scb.bankReference).toBe("202603121030123456");
+
+      // 3. Krungthai (KTB)
+      const ktb = parseBankSlipText(`
+        โอนเงินสำเร็จ Krungthai
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย กรุงไทย ใจดี ธ.กรุงไทย xxx-x-x2222-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        รหัสอ้างอิง: 202603121030123456
+        สแกนตรวจสอบสลิป
+      `);
+      expect(ktb.bankName).toBe("KTB");
+      expect(ktb.amount).toBe(5000.0);
+      expect(ktb.bankReference).toBe("202603121030123456");
+
+      // 4. Bangkok Bank (BBL)
+      const bbl = parseBankSlipText(`
+        โอนเงินสำเร็จ Bangkok Bank
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย กรุงเทพ รักไทย ธ.กรุงเทพ xxx-x-x3333-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        เลขที่อ้างอิง BBL2026031210301234
+        สแกนตรวจสอบสลิป
+      `);
+      expect(bbl.bankName).toBe("BBL");
+      expect(bbl.amount).toBe(5000.0);
+      expect(bbl.bankReference).toBe("BBL2026031210301234");
+
+      // 5. Krungsri (BAY)
+      const bay = parseBankSlipText(`
+        โอนเงินสำเร็จ krungsri
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย กรุงศรี ดีดี ธ.กรุงศรีอยุธยา xxx-x-x4444-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        เลขที่รายการ: 202603121030123456
+        สแกนตรวจสอบสลิป
+      `);
+      expect(bay.bankName).toBe("BAY");
+      expect(bay.amount).toBe(5000.0);
+      expect(bay.bankReference).toBe("202603121030123456");
+
+      // 6. TTB (TMBThanachart)
+      const ttb = parseBankSlipText(`
+        โอนเงินสำเร็จ ttb
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย ทีทีบี รักไทย ธ.ทหารไทยธนชาต xxx-x-x5555-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        รหัสอ้างอิง: 202603121030123456
+        สแกนตรวจสอบสลิป
+      `);
+      expect(ttb.bankName).toBe("TTB");
+      expect(ttb.amount).toBe(5000.0);
+      expect(ttb.bankReference).toBe("202603121030123456");
+
+      // 7. GSB (Government Savings Bank / ออมสิน)
+      const gsb = parseBankSlipText(`
+        โอนเงินสำเร็จ ออมสิน GSB
+        12 มี.ค. 2566 - 10:30 น.
+        จาก นาย ออมสิน ใจดี ธ.ออมสิน xxx-x-x6666-x
+        ไปยัง น.ส. กสิกร รักไทย ธ.กสิกรไทย xxx-x-x5678-x
+        จำนวนเงิน 5,000.00 บาท
+        ค่าธรรมเนียม 0.00 บาท
+        เลขที่รายการ: 202603121030123456
+        สแกนตรวจสอบสลิป
+      `);
+      expect(gsb.bankName).toBe("GSB");
+      expect(gsb.amount).toBe(5000.0);
+      expect(gsb.bankReference).toBe("202603121030123456");
+    });
+
+    it("correctly attributes the sender bank in interbank transfers (not recipient bank)", () => {
+      // Transfer from SCB to KBank
+      const slip = parseBankSlipText(`
+        จาก นาย กสิกร ปลายทาง
+        ธ.ไทยพาณิชย์
+        ไปยัง
+        น.ส. สมหญิง
+        ธ.กสิกรไทย
+        จำนวนเงิน 1,200.00 บาท
+        รหัสอ้างอิง: 202603121030123456
+      `);
+      // Issuer is SCB (from "จาก ธ.ไทยพาณิชย์"), not KBank (recipient)
+      expect(slip.bankName).toBe("SCB");
+    });
   });
 });

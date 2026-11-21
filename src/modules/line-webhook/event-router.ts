@@ -256,6 +256,7 @@ export class LineEventRouter {
     let detectedAmount: number | null = null;
     let transferDate: string | null = null;
     let bankReference: string | null = null;
+    let bankName: string | null = null;
 
     // A) Try OpenThai 2.1 OCR (Local ONNX/OpenVINO model, 100-300ms, specialized on Thai receipts & slips)
     try {
@@ -263,8 +264,9 @@ export class LineEventRouter {
       if (openThaiResult) {
         rawOcrText = openThaiResult.rawText || "";
         detectedAmount = openThaiResult.amount;
-        transferDate = openThaiResult.transferDate;
+        transferDate = openThaiResult.formattedDate || openThaiResult.transferDate;
         bankReference = openThaiResult.bankReference;
+        bankName = openThaiResult.bankName;
       }
     } catch (openThaiErr) {
       console.warn("[LineEventRouter] OpenThai OCR extraction error, falling back to local OCR:", openThaiErr);
@@ -278,8 +280,9 @@ export class LineEventRouter {
           rawOcrText = localText;
           const parsed = parseBankSlipText(localText);
           detectedAmount = parsed.amount;
-          transferDate = parsed.transferDate;
+          transferDate = parsed.formattedDate || parsed.transferDate;
           bankReference = parsed.bankReference;
+          bankName = parsed.bankName ?? null;
         }
       } catch (ocrErr) {
         console.warn("[LineEventRouter] Local Tesseract OCR failed or timed out:", ocrErr);
@@ -321,6 +324,7 @@ export class LineEventRouter {
         amount: detectedAmount,
         transferDate: transferDate,
         bankReference: bankReference,
+        bankName: bankName,
       });
 
       await this.lineClient.replyMessage(replyToken, [reviewFlex]);

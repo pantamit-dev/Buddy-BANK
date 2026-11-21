@@ -103,6 +103,28 @@ export function createWelcomeFlexMessage(liffUrl: string): messagingApi.FlexMess
   };
 }
 
+const BANK_DISPLAY_NAMES: Record<string, string> = {
+  KBank: "กสิกรไทย (KBank)",
+  SCB: "ไทยพาณิชย์ (SCB)",
+  KTB: "กรุงไทย (Krungthai)",
+  BBL: "กรุงเทพ (Bangkok Bank)",
+  BAY: "กรุงศรีอยุธยา (Krungsri)",
+  TTB: "ทหารไทยธนชาต (ttb)",
+  GSB: "ออมสิน (GSB)",
+  PromptPay: "พร้อมเพย์ (PromptPay)",
+  TrueMoney: "ทรูมันนี่ (TrueMoney)",
+  BAAC: "ธ.ก.ส. (BAAC)",
+  CIMB: "ซีไอเอ็มบี (CIMB)",
+  UOB: "ยูโอบี (UOB)",
+  KKP: "เกียรตินาคินภัทร (KKP)",
+  LHBANK: "แลนด์ แอนด์ เฮ้าส์ (LH Bank)",
+};
+
+export function getBankDisplayName(bankCode?: string | null): string {
+  if (!bankCode) return "ไม่ระบุ";
+  return BANK_DISPLAY_NAMES[bankCode] || bankCode;
+}
+
 /**
  * Creates the Slip Intake Pending Review Card with Approve & Reject Postback Buttons
  */
@@ -113,8 +135,9 @@ export function createSlipReviewFlexMessage(params: {
   amount: number | null;
   transferDate?: string | null;
   bankReference?: string | null;
+  bankName?: string | null;
 }): messagingApi.FlexMessage {
-  const { depositId, groupId, uploaderName, amount, transferDate, bankReference } = params;
+  const { depositId, groupId, uploaderName, amount, transferDate, bankReference, bankName } = params;
 
   return {
     type: "flex",
@@ -161,6 +184,22 @@ export function createSlipReviewFlexMessage(params: {
                 weight: "bold",
                 color: "#059669",
                 flex: 3,
+              },
+            ],
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              { type: "text", text: "ธนาคาร", size: "xs", color: "#64748b", flex: 2 },
+              {
+                type: "text",
+                text: getBankDisplayName(bankName),
+                size: "xs",
+                weight: "bold",
+                color: "#1e293b",
+                flex: 3,
+                wrap: true,
               },
             ],
           },

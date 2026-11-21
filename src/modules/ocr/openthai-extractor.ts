@@ -14,6 +14,7 @@ export interface OpenThaiSlipResult {
   transferDate: string | null;
   bankReference: string | null;
   bankName: string | null;
+  formattedDate?: string | null;
   senderName?: string | null;
   receiverName?: string | null;
   rawText: string;
@@ -189,6 +190,7 @@ export async function extractSlipWithOpenThai(
     transferDate: normalizedDate,
     bankReference: parsed.bankReference ?? null,
     bankName: parsed.bankName ?? null,
+    formattedDate: parsed.formattedDate ?? null,
     rawText: ocrData.text,
     source: "openthai_ocr",
     timing: ocrData.timing,
