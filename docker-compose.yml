@@ -94,19 +94,3 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.anon_key_mock_local}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.service_role_key_mock_local}
       DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres?sslmode=disable
-
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: bank_buddy_ngrok
-    restart: unless-stopped
-    depends_on:
-      - app
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
-    command:
-      - "http"
-      - "app:3000"
-    ports:
-      - "4040:4040"
-    profiles:
-      - ngrok

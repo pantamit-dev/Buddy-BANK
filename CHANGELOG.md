@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Robust multi-bank slip extraction supporting KBank, SCB, KTB, BBL, BAY, TTB, GSB, and PromptPay.
   - Multi-pattern reference code extraction handling stylized/loopless fonts and Thai Buddhist calendar (พ.ศ.) timestamps.
   - Graceful fallback pipeline to Tesseract.js in case of local server downtime.
-- **Dynamic Service Discovery & All-in-One Automation:**
-  - `scripts/start-all.py`: Single command orchestrating OCR daemon, dynamic ngrok/Cloudflare tunnel, Supabase `system_settings` live synchronization, and Next.js application.
+- **Dynamic Service Discovery & Cloudflare Tunneling Automation:**
+  - `scripts/start-all.py` & `scripts/start-ocr-tunnel.py`: Orchestrates local OCR daemon, zero-config Cloudflare Quick Tunnel (`*.trycloudflare.com`), Supabase `system_settings` auto-sync, and Next.js app with live reconnection monitoring.
+  - Replaced legacy ngrok with Cloudflare Tunnel (unlimited bandwidth, edge latency in Bangkok, zero browser warning headers, and 33MB disk space saved).
   - Cloud Vercel Serverless automatically discovers live local OCR tunnel URL from Supabase without manual environment variable redeployments.
 - **Deterministic LINE In-Chat Approval:**
   - Instant LINE loading animation (`POST /v2/bot/chat/loading/start`) upon button click.

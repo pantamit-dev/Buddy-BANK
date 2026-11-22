@@ -301,9 +301,9 @@ erDiagram
   2. Local Docker Compose orchestrating Supabase (PostgreSQL 15, Auth, Storage, Studio).
   3. LINE Webhook handler (`/api/webhooks/line`) with HMAC-SHA256 signature verification.
   4. Local OpenThai 2.1 OCR engine (PP-OCRv6-tiny + Thai CTC recognizer with OpenVINO / ONNX runtime, ~100-300ms) with specialized bank slip parser extracting amount, timestamp, bank name, and reference code. Local Tesseract.js retained as emergency fallback.
-  5. **Dynamic Service Discovery & Hybrid Tunneling (ngrok / Cloudflare):**
+  5. **Dynamic Service Discovery & Cloudflare Tunneling:**
      - Cloud Vercel Serverless automatically discovers the active local OCR URL from Supabase `system_settings` (`key: OPENTHAI_OCR_URL`).
-     - Automated runner script (`npm run dev:all` / `npm run start:all`) launches the local OCR engine, spins up `ngrok.exe` (or Cloudflare Tunnel), and auto-registers the public URL to Supabase in real-time without requiring Vercel environment re-deployments.
+     - Automated runner script (`npm run dev:all` / `npm run start:all`) launches the local OCR engine, establishes a Cloudflare Quick Tunnel (`*.trycloudflare.com`), and auto-registers the public URL to Supabase in real-time with background reconnection monitoring.
   6. In-Chat Postback Approval:
      - Immediate `POST /v2/bot/chat/loading/start` trigger.
      - Atomic lock: `UPDATE deposits SET status = 'processing', click_count = click_count + 1 WHERE id = :id AND status = 'pending'`.

@@ -134,7 +134,7 @@ export async function extractSlipWithOpenThai(
     ocrUrl = `${ocrUrl.replace(/\/+$/, "")}/ocr`;
   }
 
-  // Increase default timeout to 12s for remote tunnels (ngrok/cloudflared)
+  // Increase default timeout to 12s for remote tunnels (Cloudflare / Edge)
   const timeoutMs = options?.timeoutMs || 12000;
 
   // 1. Optimize image buffer with sharp (auto-orient EXIF, resize to max 1080px width/height, quality 82)
@@ -149,7 +149,7 @@ export async function extractSlipWithOpenThai(
     console.warn("[OpenThaiExtractor] Image optimization skipped or failed:", err);
   }
 
-  // 2. Try HTTP microservice first (ultra-fast ~100-300ms locally, ~1.5-3s over secure tunnel)
+  // 2. Try HTTP microservice first (ultra-fast ~100-300ms locally, ~1.2-2.5s over Cloudflare tunnel)
   let ocrData: OpenThaiServerResponse | null = null;
   try {
     const controller = new AbortController();
@@ -159,7 +159,6 @@ export async function extractSlipWithOpenThai(
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
-        "ngrok-skip-browser-warning": "true",
         "User-Agent": "BankBuddy-OCR/1.0",
       },
       body: new Uint8Array(buffer),

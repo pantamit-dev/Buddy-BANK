@@ -31,7 +31,9 @@ yarn-error.log*
 .vercel
 
 # binaries
-ngrok.exe
+cloudflared.exe
+.cloudflared/
+duckdns-powershell/
 *.exe
 *.tsbuildinfo
 next-env.d.ts

@@ -21,8 +21,9 @@
    - รองรับสลิปธนาคารชั้นนำของไทย: กสิกรไทย (KBank), ไทยพาณิชย์ (SCB), กรุงไทย (KTB), กรุงเทพ (BBL), กรุงศรี (BAY), ทีทีบี (TTB), ออมสิน (GSB) และพร้อมเพย์ (PromptPay)
    - มีระบบ fallback อัตโนมัติไปยัง Tesseract.js กรณีเกิดเหตุขัดข้อง
 
-2. **ระบบ All-in-One Automation & Dynamic Service Discovery**
-   - คำสั่งเดียว `npm run dev:all` หรือ `npm run start:all` สามารถเปิดระบบ OCR Server, สร้าง ngrok/Cloudflare tunnel และอัปเดต URL ไปยังฐานข้อมูล Supabase (`system_settings`) ทันที
+2. **ระบบ All-in-One Automation & Cloudflare Tunneling**
+   - คำสั่งเดียว `npm run dev:all` หรือ `npm run start:all` สามารถเปิดระบบ OCR Server, สร้าง Cloudflare Quick Tunnel (`*.trycloudflare.com`) และอัปเดต URL ไปยังฐานข้อมูล Supabase (`system_settings`) พร้อมระบบตรวจจับ Reconnect อัตโนมัติ
+   - ปลดล็อคลิมิต Bandwidth เป็นฟรีไม่จำกัด และไม่มีหน้าเตือน Browser Interstitial
    - ระบบ Vercel Serverless คลาวด์ค้นหาพิกัด OCR อัตโนมัติแบบ Real-time โดยไม่ต้องแก้ Environment Variables หรือ Deploy ใหม่
 
 3. **ระบบอนุมัติสลิปใน LINE Group แบบ Deterministic ป้องกัน Race Condition**

@@ -24,9 +24,9 @@ The system is built as a robust **Modular Monolith** powered by an immutable, ap
 - **Resilient Regex & Date Parsing:** Normalizes various Thai and Buddhist calendar (พ.ศ.) date-time formats and handles stylized loopless fonts (Kanit, Prompt).
 - **Fallback Engine:** Graceful fallback to embedded Tesseract.js OCR engine if needed.
 
-### 3. Dynamic Service Discovery & Tunneling Automation
-- **All-in-One Runner (`npm run dev:all` / `npm run start:all`):** One single command starts the local OCR server, establishes an encrypted public tunnel via `ngrok.exe` (or Cloudflare Tunnel), dynamically updates the Supabase `system_settings` table, and boots the Next.js application.
-- **Zero Vercel Re-deployments:** Cloud Vercel Serverless automatically discovers the active local OCR endpoint from Supabase database in real-time.
+### 3. Dynamic Service Discovery & Cloudflare Tunneling
+- **All-in-One Runner (`npm run dev:all` / `npm run start:all`):** One single command starts the local OCR server, establishes a zero-config Cloudflare Quick Tunnel (`*.trycloudflare.com`), dynamically updates the Supabase `system_settings` table, and boots the Next.js application.
+- **Zero Vercel Re-deployments:** Cloud Vercel Serverless automatically discovers the active local OCR endpoint from Supabase database in real-time without manual URL updates.
 
 ### 4. Deterministic In-Chat Verification & Race Condition Protection
 - **Instant LINE Loading Animation:** Triggers `POST /v2/bot/chat/loading/start` immediately upon user action for instant UX feedback.
@@ -108,7 +108,7 @@ flowchart TB
 - **Python**: 3.12 (For OpenThai 2.1 OCR Engine)
 - **Docker & Docker Compose**: Active Docker daemon for local PostgreSQL, GoTrue Auth, and MinIO Storage
 - **uv** (recommended for ultra-fast Python venv setup) or standard `python -m venv`
-- **ngrok** account (optional, `ngrok.exe` placed in root for tunneling)
+- **Cloudflare Tunnel (`cloudflared`)**: Install via `winget install Cloudflare.cloudflared -e` (Free, no account required)
 
 ---
 
@@ -132,7 +132,6 @@ Configure:
 - `LINE_CHANNEL_SECRET` & `LINE_CHANNEL_ACCESS_TOKEN` (from [LINE Developers Console](https://developers.line.biz/))
 - `NEXT_PUBLIC_LIFF_ID` (LINE Mini App ID)
 - `NEXT_PUBLIC_SUPABASE_URL` & `SUPABASE_SERVICE_ROLE_KEY`
-- `NGROK_AUTHTOKEN` (if utilizing ngrok tunnel)
 
 ### 3. Start Local Supabase Services (Docker)
 
@@ -150,14 +149,14 @@ npm run ocr:setup
 ### 5. Launch Full Stack (All-in-One Runner)
 
 ```bash
-# Development Mode (OCR Server + Tunnel Auto-Sync + Next.js App):
+# Development Mode (OCR Server + Cloudflare Tunnel Auto-Sync + Next.js App):
 npm run dev:all
 
 # Or Production Mode:
 npm run build && npm run start:all
 ```
 
-*The runner boots the local OCR engine, detects `ngrok.exe` (or falls back to Cloudflare Tunnel), updates Supabase `system_settings` for remote discovery, and launches the web application.*
+*The runner boots the local OCR engine, establishes a Cloudflare Quick Tunnel (`*.trycloudflare.com`), auto-registers the public URL to Supabase `system_settings` with live reconnection monitoring, and launches the web application.*
 
 Visit the Mini App Dashboard: [http://localhost:3000/overview](http://localhost:3000/overview)
 
