@@ -35,6 +35,15 @@ vi.mock("@/integrations/supabase/server", () => ({
         }),
       };
     },
+    storage: {
+      from: () => ({
+        upload: async () => ({ error: null }),
+        createSignedUrl: async () => ({
+          data: { signedUrl: "https://example.com/qr.png" },
+          error: null,
+        }),
+      }),
+    },
   }),
 }));
 

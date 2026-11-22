@@ -1277,7 +1277,7 @@ export function createPromptPayFlexMessage(params: {
           height: "sm",
           action: {
             type: "uri",
-            label: "🚀 เปิดโอนเงิน & เปิดแอปธนาคาร",
+            label: "📱 เปิดโอนเงิน & บันทึก QR ใน Mini App",
             uri: `${liffUrl}?action=transfer${hasAmount ? `&amount=${amount}` : ""}`,
           },
         },

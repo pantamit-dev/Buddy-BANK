@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { generatePromptPayPayload } from "@/lib/promptpay";
-import { THAI_BANKS } from "@/lib/bank-deeplinks";
 import { createAdminClient } from "@/integrations/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +12,7 @@ export async function GET(req: NextRequest) {
     const targetParam = searchParams.get("target");
     const groupId = searchParams.get("groupId");
     const format = searchParams.get("format") || "json";
+    const isDownload = searchParams.get("download") === "1";
 
     let target = targetParam;
     let bankAccountNo = "123-4-56789-0";
@@ -57,8 +57,8 @@ export async function GET(req: NextRequest) {
 
     const payload = generatePromptPayPayload(target, validAmount);
 
-    // If binary image requested (e.g. for LINE Flex Message hero image or download)
-    if (format === "image" || format === "png") {
+    // If binary image requested (e.g. for direct download or LINE Flex hero image)
+    if (format === "image" || format === "png" || isDownload) {
       const buffer = await QRCode.toBuffer(payload, {
         width: 480,
         margin: 2,
@@ -68,16 +68,23 @@ export async function GET(req: NextRequest) {
         },
       });
 
+      const headers: Record<string, string> = {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=60, s-maxage=60",
+      };
+
+      if (isDownload) {
+        const filename = `promptpay-${validAmount ? `${validAmount}thb` : "qr"}.png`;
+        headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+      }
+
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=60, s-maxage=60",
-        },
+        headers,
       });
     }
 
-    // Default: JSON response
+    // Default: JSON response with base64 Data URL
     const qrDataUrl = await QRCode.toDataURL(payload, {
       width: 360,
       margin: 2,
@@ -86,6 +93,8 @@ export async function GET(req: NextRequest) {
         light: "#ffffff",
       },
     });
+
+    const downloadUrl = `/api/promptpay/generate?groupId=${groupId || ""}&target=${encodeURIComponent(target)}&amount=${validAmount || 0}&format=png&download=1`;
 
     return NextResponse.json({
       success: true,
@@ -96,7 +105,7 @@ export async function GET(req: NextRequest) {
       accountName,
       payload,
       qrDataUrl,
-      banks: THAI_BANKS,
+      downloadUrl,
     });
   } catch (error: any) {
     console.error("[PromptPayRoute] Generation error:", error);

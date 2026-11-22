@@ -7,6 +7,8 @@ import {
   createPromptPayFlexMessage,
 } from "@/modules/line-webhook/flex-templates";
 import { createAdminClient } from "@/integrations/supabase/server";
+import { generatePromptPayPayload } from "@/lib/promptpay";
+import QRCode from "qrcode";
 import type { messagingApi } from "@line/bot-sdk";
 
 export class CommandHandler {
@@ -182,14 +184,54 @@ export class CommandHandler {
       const bankName = rules?.bank_name || "กสิกรไทย (KBANK)";
       const accountName = rules?.account_name || group.name;
 
-      const appUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-      const qrImageUrl = appUrl
-        ? `${appUrl}/api/promptpay/generate?groupId=${group.id}&format=image${
+      // Generate EMVCo PromptPay QR Code Image and upload to Supabase Storage for reliable LINE preview
+      let qrImageUrl: string | undefined;
+      try {
+        const payload = generatePromptPayPayload(target, amount);
+        const qrBuffer = await QRCode.toBuffer(payload, {
+          width: 480,
+          margin: 2,
+          color: {
+            dark: "#0f172a",
+            light: "#ffffff",
+          },
+        });
+
+        const cleanTarget = target.replace(/[^0-9]/g, "");
+        const safeAmount = amount ? Math.round(amount * 100) : 0;
+        const storagePath = `qr_codes/${group.id}_${cleanTarget}_${safeAmount}.png`;
+
+        const { error: uploadErr } = await this.supabase.storage
+          .from("slips")
+          .upload(storagePath, qrBuffer, {
+            contentType: "image/png",
+            upsert: true,
+          });
+
+        if (!uploadErr) {
+          const { data: signedData } = await this.supabase.storage
+            .from("slips")
+            .createSignedUrl(storagePath, 60 * 60 * 24 * 7); // 7 days
+
+          if (signedData?.signedUrl) {
+            qrImageUrl = signedData.signedUrl;
+          }
+        }
+      } catch (qrErr) {
+        console.error("[CommandHandler] Failed to upload QR image to Supabase Storage:", qrErr);
+      }
+
+      // Fallback: Check if NEXT_PUBLIC_APP_URL is available
+      if (!qrImageUrl) {
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL ||
+          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+        if (appUrl) {
+          qrImageUrl = `${appUrl}/api/promptpay/generate?groupId=${group.id}&format=png${
             amount ? `&amount=${amount}` : ""
-          }`
-        : undefined;
+          }`;
+        }
+      }
 
       return createPromptPayFlexMessage({
         groupName: group.name,

@@ -33,11 +33,9 @@ import {
   Check,
   Download,
   ExternalLink,
-  Smartphone,
   RefreshCw,
 } from "lucide-react";
 import { overviewCache, CACHE_TTL_MS } from "@/shared/lib/overview-cache";
-import { THAI_BANKS, openBankApp, BankInfo } from "@/lib/bank-deeplinks";
 
 export default function OverviewPage() {
   const { groupId, profile } = useLiff();
@@ -66,7 +64,7 @@ export default function OverviewPage() {
   const [bankName, setBankName] = useState<string>("กสิกรไทย (KBANK)");
   const [accountName, setAccountName] = useState<string>("กองกลาง Bank Buddy");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [bankLaunchToast, setBankLaunchToast] = useState<string | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
 
   // Auto-open modal if URL has ?action=transfer
   useEffect(() => {
@@ -121,25 +119,59 @@ export default function OverviewPage() {
     }
   };
 
-  const handleDownloadQr = () => {
+  const handleDownloadQr = async () => {
     if (!qrDataUrl) return;
-    const link = document.createElement("a");
-    link.href = qrDataUrl;
-    link.download = `bankbuddy-promptpay-${transferAmount || "custom"}thb.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
-  const handleLaunchBank = (bank: BankInfo) => {
-    const copyText = `${bankAccountNo} (ยอด ${transferAmount} บาท)`;
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(copyText);
+    setDownloadStatus("กำลังบันทึกภาพ...");
+    const filename = `promptpay-${transferAmount ? `${transferAmount}thb` : "qr"}.png`;
+
+    try {
+      // 1. Fetch data URL as Blob
+      const res = await fetch(qrDataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], filename, { type: "image/png" });
+
+      // 2. Web Share API: Best on iOS & Android devices - prompts native "Save Image" to Photos
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: "PromptPay QR Code",
+          text: `PromptPay QR โอนเงินกองกลาง ${transferAmount > 0 ? formatCurrency(transferAmount) : ""}`,
+        });
+        setDownloadStatus("บันทึกภาพสำเร็จ!");
+        setTimeout(() => setDownloadStatus(null), 3000);
+        return;
+      }
+
+      // 3. Blob Object URL download for desktop / compatible browsers
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+
+      setDownloadStatus("ดาวน์โหลดภาพสำเร็จ!");
+      setTimeout(() => setDownloadStatus(null), 3000);
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        setDownloadStatus(null);
+        return;
+      }
+      console.warn("Direct download fallback triggered:", err);
+
+      // 4. Server Attachment Fallback
+      const serverDownloadUrl = `/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}&format=png&download=1`;
+      window.location.href = serverDownloadUrl;
+      setDownloadStatus("กำลังดาวน์โหลดภาพ...");
+      setTimeout(() => setDownloadStatus(null), 3000);
     }
-    setBankLaunchToast(`คัดลอกเลขบัญชีแล้ว กำลังเปิดแอป ${bank.name}...`);
-    setTimeout(() => setBankLaunchToast(null), 3000);
-
-    openBankApp(bank);
   };
 
   useEffect(() => {
@@ -532,7 +564,7 @@ export default function OverviewPage() {
                   </h3>
                   {activeModal === "transfer" && (
                     <p className="text-[10px] text-text-secondary">
-                      สแกน QR Code หรือเลือกเปิดแอปธนาคารเพื่อโอน
+                      สแกน QR Code หรือคัดลอกเลขบัญชีกองกลางเพื่อโอนเงิน
                     </p>
                   )}
                 </div>
@@ -545,11 +577,11 @@ export default function OverviewPage() {
               </button>
             </div>
 
-            {/* Launch feedback toast */}
-            {bankLaunchToast && (
+            {/* Download Status Toast Banner */}
+            {downloadStatus && (
               <div className="p-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center gap-2 shadow-xs animate-in slide-in-from-top duration-200">
-                <Sparkles className="w-4 h-4 shrink-0 animate-spin" />
-                <span className="flex-1">{bankLaunchToast}</span>
+                <Check className="w-4 h-4 shrink-0" />
+                <span className="flex-1">{downloadStatus}</span>
               </div>
             )}
 
@@ -615,13 +647,13 @@ export default function OverviewPage() {
                   </div>
 
                   {/* Dynamic PromptPay QR Code Display */}
-                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-border text-center space-y-2.5 shadow-xs">
-                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-brand-strong">
-                      <QrCode className="w-3.5 h-3.5 text-brand" />
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-border text-center space-y-3 shadow-xs">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-brand-strong">
+                      <QrCode className="w-4 h-4 text-brand" />
                       <span>PromptPay QR Code (ระบุยอดเงินอัตโนมัติ)</span>
                     </div>
 
-                    <div className="relative w-48 h-48 mx-auto bg-white p-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner flex items-center justify-center">
+                    <div className="relative w-52 h-52 mx-auto bg-white p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner flex items-center justify-center">
                       {qrLoading ? (
                         <div className="flex flex-col items-center gap-2 text-text-secondary">
                           <RefreshCw className="w-6 h-6 animate-spin text-brand" />
@@ -631,37 +663,54 @@ export default function OverviewPage() {
                         <img
                           src={qrDataUrl}
                           alt="PromptPay QR Code"
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-contain select-none"
                         />
                       ) : (
                         <span className="text-xs text-text-secondary">ไม่สามารถสร้าง QR ได้</span>
                       )}
                     </div>
 
-                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-2 text-center">
-                      <p className="text-[10.5px] font-bold text-emerald-800 dark:text-emerald-300">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-2.5 text-center">
+                      <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                         {transferAmount > 0
-                          ? `ยอดเงินโอน: ${formatCurrency(transferAmount)} (ล็อกยอดใน QR)`
+                          ? `ยอดเงินโอน: ${formatCurrency(transferAmount)} (ล็อกยอดใน QR แล้ว)`
                           : "สแกนแล้วระบุยอดเงินที่ต้องการโอนได้เลย"}
                       </p>
-                      <p className="text-[9.5px] text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        แอปธนาคารจะใส่ยอดเงินนี้ให้โดยอัตโนมัติ
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        เมื่อเปิดสแกนในแอปธนาคาร ยอดเงินจะปรากฏขึ้นอัตโนมัติ
                       </p>
                     </div>
 
-                    {/* Download QR Button */}
-                    <button
-                      onClick={handleDownloadQr}
-                      disabled={!qrDataUrl || qrLoading}
-                      className="w-full py-2 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      บันทึกรูป QR ลงเครื่อง (ไว้เปิดสแกนในแอป)
-                    </button>
+                    <p className="text-[10px] text-text-secondary leading-tight">
+                      💡 <strong>บนมือถือ:</strong> สามารถแตะค้างที่รูปภาพ QR Code ด้านบน แล้วเลือก <strong>&quot;บันทึกภาพ&quot;</strong> หรือกดปุ่มด้านล่าง
+                    </p>
+
+                    <div className="space-y-1.5 pt-1">
+                      {/* Download QR Button (Web Share / Native Save) */}
+                      <button
+                        onClick={handleDownloadQr}
+                        disabled={!qrDataUrl || qrLoading}
+                        className="w-full py-2.5 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        {downloadStatus || "บันทึกภาพ QR Code ลงเครื่อง (แกลเลอรี)"}
+                      </button>
+
+                      {/* Fallback Direct Download Link */}
+                      <a
+                        href={`/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}&format=png&download=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-1.5 px-3 rounded-xl bg-surface hover:bg-brand-soft/40 border border-border text-text-primary text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-text-secondary" />
+                        ดาวน์โหลดไฟล์ภาพโดยตรง (Direct Download)
+                      </a>
+                    </div>
                   </div>
 
                   {/* Group Account Details Card */}
-                  <div className="p-3 rounded-2xl bg-brand-soft/40 border border-border space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-brand-soft/40 border border-border space-y-2.5">
                     <div className="flex items-center justify-between text-xs font-bold text-text-primary pb-1 border-b border-border/50">
                       <span>ข้อมูลบัญชีกองกลาง</span>
                       <span className="text-[10px] text-text-secondary font-normal">
@@ -669,11 +718,11 @@ export default function OverviewPage() {
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 text-[11px]">
+                    <div className="space-y-2 text-[11px]">
                       {/* PromptPay Row */}
                       <div className="flex items-center justify-between">
                         <span className="text-text-secondary">พร้อมเพย์:</span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-text-primary">
                             {promptPayTarget}
                           </span>
@@ -694,7 +743,7 @@ export default function OverviewPage() {
                       {/* Bank Account Row */}
                       <div className="flex items-center justify-between">
                         <span className="text-text-secondary">{bankName}:</span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-text-primary">
                             {bankAccountNo}
                           </span>
@@ -714,44 +763,6 @@ export default function OverviewPage() {
                     </div>
                   </div>
 
-                  {/* Direct Launch Banking Apps */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Smartphone className="w-3.5 h-3.5 text-brand" />
-                        <span className="text-xs font-bold text-text-primary">
-                          แตะเปิดแอปธนาคารของคุณ
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-text-secondary">
-                        (คัดลอกเลขบัญชีให้อัตโนมัติ)
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-2">
-                      {THAI_BANKS.map((bank) => (
-                        <button
-                          key={bank.id}
-                          onClick={() => handleLaunchBank(bank)}
-                          className="flex flex-col items-center justify-center p-2 rounded-xl bg-surface border border-border hover:border-brand/40 hover:bg-brand-soft/30 active:scale-95 transition-all group shadow-2xs"
-                        >
-                          <div
-                            className={`w-9 h-9 rounded-xl ${bank.iconBg} flex items-center justify-center text-white font-extrabold text-[11px] mb-1 group-hover:scale-105 transition-transform shadow-xs`}
-                            style={{ backgroundColor: bank.brandColor }}
-                          >
-                            {bank.shortName.substring(0, 3)}
-                          </div>
-                          <span className="text-[10px] font-bold text-text-primary truncate w-full text-center">
-                            {bank.name}
-                          </span>
-                          <span className="text-[9px] text-text-secondary truncate w-full text-center">
-                            {bank.thaiName}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Instruction Footer */}
                   <div className="p-3 rounded-xl bg-surface border border-border space-y-1">
                     <p className="font-bold text-text-primary text-[10.5px]">
@@ -765,7 +776,7 @@ export default function OverviewPage() {
                   </div>
 
                   <Link href="/review" onClick={() => setActiveModal(null)}>
-                    <Button className="w-full bg-brand-soft text-brand-strong hover:bg-brand-soft/80 border border-brand/20 rounded-xl text-xs h-9 font-semibold">
+                    <Button className="w-full bg-brand text-white hover:bg-brand-strong rounded-xl text-xs h-9 font-semibold">
                       ไปยังหน้าตรวจสลิปค้าง
                     </Button>
                   </Link>
