@@ -5,7 +5,8 @@ export type BackgroundJobType =
   | "monthly_summary"
   | "pending_slip_alert"
   | "report_generation"
-  | "expire_stale_withdrawals";
+  | "expire_stale_withdrawals"
+  | "cleanup_qr_code";
 
 export interface BackgroundJobPayload {
   channel?: "line_group" | "mini_app" | "internal";

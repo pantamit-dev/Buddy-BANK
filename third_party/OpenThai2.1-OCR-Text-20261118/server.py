@@ -145,8 +145,8 @@ def run_server(host: str = "0.0.0.0", port: int = 8001, threads: int = 2) -> Non
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenThai 2.1 OCR Service")
     parser.add_argument("--cli", type=str, help="Process a single image via CLI and print JSON to stdout")
-    parser.add_argument("--host", type=str, default=os.getenv("OPENTHAI_HOST", "127.0.0.1"), help="HTTP host")
-    parser.add_argument("--port", type=int, default=int(os.getenv("OPENTHAI_PORT", "8001")), help="HTTP port")
+    parser.add_argument("--host", type=str, default=os.getenv("OPENTHAI_HOST", "0.0.0.0"), help="HTTP host")
+    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", os.getenv("OPENTHAI_PORT", "8080"))), help="HTTP port")
     parser.add_argument("--threads", type=int, default=2, help="Number of inference threads")
 
     args = parser.parse_args()
