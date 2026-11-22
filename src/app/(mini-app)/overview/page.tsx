@@ -34,6 +34,7 @@ import {
   Download,
   ExternalLink,
   RefreshCw,
+  Coins,
 } from "lucide-react";
 import { overviewCache, CACHE_TTL_MS } from "@/shared/lib/overview-cache";
 
@@ -46,6 +47,7 @@ export default function OverviewPage() {
     group: any;
     balance: any;
     memberCount: number;
+    settings?: any;
   } | null>(isCacheFresh ? cached.data : null);
   const [recentDeposits, setRecentDeposits] = useState<any[]>(
     isCacheFresh ? cached.recentDeposits : []
@@ -55,8 +57,27 @@ export default function OverviewPage() {
   const [activeModal, setActiveModal] = useState<"transfer" | "topup" | "bill" | null>(null);
 
   // Transfer & PromptPay Modal States
-  const [transferAmount, setTransferAmount] = useState<number>(300);
-  const [customAmountInput, setCustomAmountInput] = useState<string>("300");
+  const [transferAmount, setTransferAmount] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("amount");
+      if (p && !isNaN(parseFloat(p))) return parseFloat(p);
+    }
+    if (cached?.data?.settings?.defaultQrAmount !== undefined && cached?.data?.settings?.defaultQrAmount !== null) {
+      return Number(cached.data.settings.defaultQrAmount);
+    }
+    return 300;
+  });
+  const [customAmountInput, setCustomAmountInput] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("amount");
+      if (p && !isNaN(parseFloat(p))) return p;
+    }
+    if (cached?.data?.settings?.defaultQrAmount !== undefined && cached?.data?.settings?.defaultQrAmount !== null) {
+      const n = Number(cached.data.settings.defaultQrAmount);
+      return n > 0 ? n.toString() : "";
+    }
+    return "300";
+  });
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [qrLoading, setQrLoading] = useState<boolean>(false);
   const [promptPayTarget, setPromptPayTarget] = useState<string>("081-234-5678");
@@ -82,31 +103,34 @@ export default function OverviewPage() {
     }
   }, []);
 
-  // Fetch or update PromptPay QR code when transfer modal is active or amount changes
+  // Fetch or update PromptPay QR code when transfer modal is active or amount changes (debounced)
   useEffect(() => {
     if (activeModal === "transfer") {
       let isSubscribed = true;
       setQrLoading(true);
-      fetch(
-        `/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}`
-      )
-        .then((res) => res.json())
-        .then((json) => {
-          if (isSubscribed && json.success) {
-            setQrDataUrl(json.qrDataUrl);
-            if (json.target) setPromptPayTarget(json.target);
-            if (json.bankAccountNo) setBankAccountNo(json.bankAccountNo);
-            if (json.bankName) setBankName(json.bankName);
-            if (json.accountName) setAccountName(json.accountName);
-          }
-        })
-        .catch((err) => console.error("Failed to generate QR:", err))
-        .finally(() => {
-          if (isSubscribed) setQrLoading(false);
-        });
+      const timer = setTimeout(() => {
+        fetch(
+          `/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}`
+        )
+          .then((res) => res.json())
+          .then((json) => {
+            if (isSubscribed && json.success) {
+              setQrDataUrl(json.qrDataUrl);
+              if (json.target) setPromptPayTarget(json.target);
+              if (json.bankAccountNo) setBankAccountNo(json.bankAccountNo);
+              if (json.bankName) setBankName(json.bankName);
+              if (json.accountName) setAccountName(json.accountName);
+            }
+          })
+          .catch((err) => console.error("Failed to generate QR:", err))
+          .finally(() => {
+            if (isSubscribed) setQrLoading(false);
+          });
+      }, 250);
 
       return () => {
         isSubscribed = false;
+        clearTimeout(timer);
       };
     }
   }, [activeModal, transferAmount, groupId]);
@@ -193,6 +217,21 @@ export default function OverviewPage() {
         if (groupRes.ok) {
           fetchedData = await groupRes.json();
           setData(fetchedData);
+
+          if (fetchedData?.settings) {
+            if (fetchedData.settings.promptpayId) setPromptPayTarget(fetchedData.settings.promptpayId);
+            if (fetchedData.settings.bankAccountNo) setBankAccountNo(fetchedData.settings.bankAccountNo);
+            if (fetchedData.settings.bankName) setBankName(fetchedData.settings.bankName);
+            if (fetchedData.settings.accountName) setAccountName(fetchedData.settings.accountName);
+
+            // Set default QR amount if not explicitly given in URL
+            const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+            if (!urlParams?.get("amount") && fetchedData.settings.defaultQrAmount !== undefined && fetchedData.settings.defaultQrAmount !== null) {
+              const defAmt = Number(fetchedData.settings.defaultQrAmount);
+              setTransferAmount(defAmt);
+              setCustomAmountInput(defAmt > 0 ? defAmt.toString() : "");
+            }
+          }
         }
 
         if (depRes.ok) {
@@ -589,28 +628,50 @@ export default function OverviewPage() {
               {activeModal === "transfer" && (
                 <>
                   {/* Amount Selector */}
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-text-primary">
-                        เลือกจำนวนเงินที่ต้องการโอน:
+                      <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-brand" />
+                        กำหนดจำนวนเงินที่ต้องการโอน:
                       </span>
-                      <span className="text-[11px] font-semibold text-brand">
-                        {transferAmount > 0 ? formatCurrency(transferAmount) : "กำหนดเอง"}
-                      </span>
+                      {transferAmount > 0 ? (
+                        <span className="text-xs font-extrabold text-brand bg-brand-soft px-2.5 py-0.5 rounded-full border border-brand/20">
+                          {formatCurrency(transferAmount)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          ไม่ระบุยอด (สแกนใส่ยอดเอง)
+                        </span>
+                      )}
                     </div>
 
                     {/* Preset Amount Pills */}
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTransferAmount(0);
+                          setCustomAmountInput("");
+                        }}
+                        className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all border text-center ${
+                          transferAmount === 0
+                            ? "bg-brand text-white border-brand shadow-xs"
+                            : "bg-surface hover:bg-brand-soft/40 border-border text-text-primary"
+                        }`}
+                      >
+                        ไม่ระบุ
+                      </button>
                       {[100, 300, 500, 1000].map((amt) => {
                         const isSelected = transferAmount === amt;
                         return (
                           <button
                             key={amt}
+                            type="button"
                             onClick={() => {
                               setTransferAmount(amt);
                               setCustomAmountInput(amt.toString());
                             }}
-                            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                            className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all border text-center ${
                               isSelected
                                 ? "bg-brand text-white border-brand shadow-xs"
                                 : "bg-surface hover:bg-brand-soft/40 border-border text-text-primary"
@@ -622,27 +683,66 @@ export default function OverviewPage() {
                       })}
                     </div>
 
-                    {/* Custom Amount Input */}
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={customAmountInput}
-                        onChange={(e) => {
-                          setCustomAmountInput(e.target.value);
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val > 0) {
-                            setTransferAmount(val);
-                          } else if (e.target.value === "") {
-                            setTransferAmount(0);
-                          }
-                        }}
-                        placeholder="ระบุจำนวนเงินเอง (เช่น 250)"
-                        className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand pr-12 font-medium"
-                      />
-                      <span className="absolute right-3 text-xs font-bold text-text-secondary pointer-events-none">
-                        บาท
-                      </span>
+                    {/* Custom Amount Input & Quick Adjust */}
+                    <div className="space-y-1.5">
+                      <div className="relative flex items-center">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="any"
+                          value={customAmountInput}
+                          onChange={(e) => {
+                            const valStr = e.target.value;
+                            setCustomAmountInput(valStr);
+                            const val = parseFloat(valStr);
+                            if (!isNaN(val) && val >= 0) {
+                              setTransferAmount(val);
+                            } else if (valStr === "") {
+                              setTransferAmount(0);
+                            }
+                          }}
+                          placeholder="ใส่จำนวนเงินที่ต้องการโอน (เช่น 250 หรือ 0)"
+                          className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand pr-14 font-medium"
+                        />
+                        <div className="absolute right-2.5 flex items-center gap-1.5">
+                          {customAmountInput && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomAmountInput("");
+                                setTransferAmount(0);
+                              }}
+                              className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-text-secondary hover:text-text-primary"
+                              title="ล้าง"
+                            >
+                              ✕
+                            </button>
+                          )}
+                          <span className="text-xs font-bold text-text-secondary pointer-events-none">
+                            บาท
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Adjust Buttons */}
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="text-[10px] text-text-secondary">เพิ่มด่วน:</span>
+                        {[50, 100, 500].map((inc) => (
+                          <button
+                            key={inc}
+                            type="button"
+                            onClick={() => {
+                              const newAmt = Math.max(0, (transferAmount || 0) + inc);
+                              setTransferAmount(newAmt);
+                              setCustomAmountInput(newAmt.toString());
+                            }}
+                            className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-surface border border-border hover:bg-brand-soft/40 text-text-secondary hover:text-brand transition-colors"
+                          >
+                            +{inc}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -650,7 +750,11 @@ export default function OverviewPage() {
                   <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-border text-center space-y-3 shadow-xs">
                     <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-brand-strong">
                       <QrCode className="w-4 h-4 text-brand" />
-                      <span>PromptPay QR Code (ระบุยอดเงินอัตโนมัติ)</span>
+                      <span>
+                        {transferAmount > 0
+                          ? "PromptPay QR Code (ล็อกยอดเงินแล้ว)"
+                          : "PromptPay QR Code (ไม่ระบุยอดเงิน)"}
+                      </span>
                     </div>
 
                     <div className="relative w-52 h-52 mx-auto bg-white p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner flex items-center justify-center">
@@ -674,10 +778,12 @@ export default function OverviewPage() {
                       <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                         {transferAmount > 0
                           ? `ยอดเงินโอน: ${formatCurrency(transferAmount)} (ล็อกยอดใน QR แล้ว)`
-                          : "สแกนแล้วระบุยอดเงินที่ต้องการโอนได้เลย"}
+                          : "QR แบบไม่ระบุยอดเงิน (สแกนแล้วใส่ยอดเองในแอปธนาคาร)"}
                       </p>
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        เมื่อเปิดสแกนในแอปธนาคาร ยอดเงินจะปรากฏขึ้นอัตโนมัติ
+                        {transferAmount > 0
+                          ? "เมื่อเปิดสแกนในแอปธนาคาร ยอดเงินจะปรากฏขึ้นอัตโนมัติ"
+                          : "เมื่อเปิดสแกนในแอปธนาคาร สามารถระบุจำนวนเงินที่ต้องการโอนได้อิสระ"}
                       </p>
                     </div>
 
@@ -691,7 +797,7 @@ export default function OverviewPage() {
                         href={`/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}&format=png&download=1`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        download={`promptpay-${transferAmount ? `${transferAmount}thb` : "qr"}.png`}
+                        download={`promptpay-${transferAmount ? `${transferAmount}thb` : "open"}.png`}
                         className="w-full py-2.5 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
                       >
                         <Download className="w-4 h-4" />
@@ -704,9 +810,19 @@ export default function OverviewPage() {
                   <div className="p-3.5 rounded-2xl bg-brand-soft/40 border border-border space-y-2.5">
                     <div className="flex items-center justify-between text-xs font-bold text-text-primary pb-1 border-b border-border/50">
                       <span>ข้อมูลบัญชีกองกลาง</span>
-                      <span className="text-[10px] text-text-secondary font-normal">
-                        {accountName}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-text-secondary font-normal">
+                          {accountName}
+                        </span>
+                        <Link
+                          href={`/settings?groupId=${groupId || ""}`}
+                          onClick={() => setActiveModal(null)}
+                          className="text-[10px] text-brand hover:underline font-semibold flex items-center gap-0.5"
+                        >
+                          ตั้งค่า
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </Link>
+                      </div>
                     </div>
 
                     <div className="space-y-2 text-[11px]">
