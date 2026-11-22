@@ -20,6 +20,11 @@ import {
   AlertTriangle,
   RotateCcw,
   Trash2,
+  QrCode,
+  CreditCard,
+  Vote,
+  Clock,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -35,6 +40,17 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
+  
+  // PromptPay & Bank Account Settings
+  const [promptpayId, setPromptpayId] = useState("");
+  const [bankAccountNo, setBankAccountNo] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [defaultQrAmount, setDefaultQrAmount] = useState("");
+
+  // Withdrawal & Voting Rules
+  const [votingQuorumPercent, setVotingQuorumPercent] = useState("50");
+  const [votingDurationHours, setVotingDurationHours] = useState("48");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -60,6 +76,18 @@ export default function SettingsPage() {
               setGroupId(json.group.id);
             }
           }
+          if (json.settings) {
+            setPromptpayId(json.settings.promptpayId || "");
+            setBankAccountNo(json.settings.bankAccountNo || "");
+            setBankName(json.settings.bankName || "");
+            setDefaultQrAmount(
+              json.settings.defaultQrAmount !== null && json.settings.defaultQrAmount !== undefined
+                ? String(json.settings.defaultQrAmount)
+                : ""
+            );
+            setVotingQuorumPercent(String(json.settings.votingQuorumPercent ?? 50));
+            setVotingDurationHours(String(json.settings.votingDurationHours ?? 48));
+          }
         }
       } catch (e) {
         console.error("Failed to load settings:", e);
@@ -84,6 +112,12 @@ export default function SettingsPage() {
           groupId: groupId || undefined,
           name,
           targetAmount: Number(targetAmount),
+          promptpayId,
+          bankAccountNo,
+          bankName,
+          defaultQrAmount: defaultQrAmount ? Number(defaultQrAmount) : null,
+          votingQuorumPercent: Number(votingQuorumPercent),
+          votingDurationHours: Number(votingDurationHours),
           actorLineUserId: profile?.userId || "U000ec61a0cfa63d6b163c764f7793c15",
         }),
       });
@@ -204,23 +238,26 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* 3. Group Pool Configuration */}
-      <Card className="bg-surface border-border shadow-xs">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
-            <Settings className="w-4 h-4 text-brand" /> ตั้งค่ากองกลาง
-          </CardTitle>
-          <CardDescription className="text-xs text-text-secondary">
-            เฉพาะหัวหน้ากลุ่ม (Owner) เท่านั้นที่มีสิทธิ์แก้ไขเป้าหมายนี้
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {loading ? (
-            <div className="py-8 text-center text-xs text-text-secondary">
-              กำลังโหลดข้อมูลการตั้งค่า...
-            </div>
-          ) : (
-            <form onSubmit={handleSave} className="space-y-4">
+      {/* 3. Group Pool Configuration Form */}
+      {loading ? (
+        <Card className="bg-surface border-border shadow-xs">
+          <CardContent className="py-8 text-center text-xs text-text-secondary">
+            กำลังโหลดข้อมูลการตั้งค่า...
+          </CardContent>
+        </Card>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-4">
+          {/* 3.1 Basic Group Settings */}
+          <Card className="bg-surface border-border shadow-xs">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+                <Settings className="w-4 h-4 text-brand" /> ตั้งค่าข้อมูลกองกลาง
+              </CardTitle>
+              <CardDescription className="text-xs text-text-secondary">
+                เฉพาะหัวหน้ากลุ่ม (Owner) เท่านั้นที่มีสิทธิ์แก้ไขข้อมูลส่วนนี้
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3.5">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-text-primary">
                   ชื่อกลุ่ม / วัตถุประสงค์กองกลาง:
@@ -250,26 +287,161 @@ export default function SettingsPage() {
                   required
                 />
               </div>
+            </CardContent>
+          </Card>
 
-              {successMsg && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-brand-soft text-brand-strong text-xs border border-brand/20">
-                  <CheckCircle2 className="w-4 h-4 text-brand shrink-0" />
-                  <span className="font-medium">{successMsg}</span>
+          {/* 3.2 PromptPay & Bank Account for QR Code Generation */}
+          <Card className="bg-surface border-border shadow-xs">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-brand" /> บัญชีกองกลาง & PromptPay QR Code
+              </CardTitle>
+              <CardDescription className="text-xs text-text-secondary">
+                กำหนดเบอร์ PromptPay หรือเลขบัญชีธนาคารสำหรับสร้าง QR Code ให้สมาชิกสแกนโอนเงิน
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-brand" />
+                    พร้อมเพย์ ID (PromptPay):
+                  </label>
+                  <span className="text-[10.5px] text-brand font-semibold">สร้าง QR Code</span>
                 </div>
-              )}
+                <Input
+                  type="text"
+                  value={promptpayId}
+                  onChange={(e) => setPromptpayId(e.target.value)}
+                  placeholder="เช่น 0812345678 หรือ 1100412345678"
+                  className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand font-mono"
+                />
+                <p className="text-[10px] text-text-secondary leading-tight">
+                  รองรับเบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก (ใช้สร้าง QR Code มาตรฐาน EMVCo อัตโนมัติ)
+                </p>
+              </div>
 
-              <Button
-                type="submit"
-                disabled={saving}
-                className="w-full bg-brand hover:bg-brand-strong text-white text-xs h-12 rounded-xl gap-2 font-bold transition-all shadow-xs"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-              </Button>
-            </form>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-brand" />
+                    เลขที่บัญชีธนาคาร:
+                  </label>
+                  <Input
+                    type="text"
+                    value={bankAccountNo}
+                    onChange={(e) => setBankAccountNo(e.target.value)}
+                    placeholder="เช่น 123-4-56789-0"
+                    className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    ชื่อธนาคาร:
+                  </label>
+                  <Input
+                    type="text"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="เช่น กสิกรไทย (KBANK)"
+                    className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-text-primary">
+                  จำนวนเงินเริ่มต้นสำหรับ QR Code (บาท):
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={defaultQrAmount}
+                  onChange={(e) => setDefaultQrAmount(e.target.value)}
+                  placeholder="เว้นว่างไว้หากต้องการให้ผู้สแกนระบุยอดเอง"
+                  className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand font-medium tabular-nums"
+                />
+                <p className="text-[10px] text-text-secondary leading-tight">
+                  หากกำหนดไว้ เมื่อสมาชิกเปิดหน้าโอนเงินหรือขอ QR ใน LINE ระบบจะใส่ยอดเงินนี้ใน QR Code ให้ทันที
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 3.3 Withdrawal & Voting Configuration */}
+          <Card className="bg-surface border-border shadow-xs">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+                <Vote className="w-4 h-4 text-brand" /> เงื่อนไขการถอนเงิน & การลงมติ (Withdrawal)
+              </CardTitle>
+              <CardDescription className="text-xs text-text-secondary">
+                กำหนดเกณฑ์การลงมติเห็นชอบเมื่อมีสมาชิกเสนอเบิกจ่ายหรือถอนเงินจากกองกลาง
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    สัดส่วนโหวตเห็นชอบ (%):
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={votingQuorumPercent}
+                    onChange={(e) => setVotingQuorumPercent(e.target.value)}
+                    placeholder="50"
+                    className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand font-medium tabular-nums"
+                    required
+                  />
+                  <p className="text-[10px] text-text-secondary leading-tight">
+                    เปอร์เซ็นต์เสียงเห็นชอบขั้นต่ำของสมาชิกทั้งหมด (ปกติ 50%)
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-brand" />
+                    ระยะเวลาโหวต (ชม.):
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="168"
+                    value={votingDurationHours}
+                    onChange={(e) => setVotingDurationHours(e.target.value)}
+                    placeholder="48"
+                    className="rounded-xl border-border bg-surface text-text-primary focus-visible:ring-brand font-medium tabular-nums"
+                    required
+                  />
+                  <p className="text-[10px] text-text-secondary leading-tight">
+                    ระยะเวลาเปิดโหวตก่อนคำขอถอนเงินจะหมดอายุ (ปกติ 48 ชม.)
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Status & Submit Button */}
+          {successMsg && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-brand-soft text-brand-strong text-xs border border-brand/20">
+              <CheckCircle2 className="w-4 h-4 text-brand shrink-0" />
+              <span className="font-medium">{successMsg}</span>
+            </div>
           )}
-        </CardContent>
-      </Card>
+
+          <Button
+            type="submit"
+            disabled={saving}
+            className="w-full bg-brand hover:bg-brand-strong text-white text-xs h-12 rounded-xl gap-2 font-bold transition-all shadow-xs"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? "กำลังบันทึกการตั้งค่าทั้งหมด..." : "บันทึกการตั้งค่าทั้งหมด"}
+          </Button>
+        </form>
+      )}
 
       {/* 4. Owner Development Reset Tools (Danger Zone) */}
       <Card className="bg-surface border-negative/30 shadow-xs overflow-hidden">

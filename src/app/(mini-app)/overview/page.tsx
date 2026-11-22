@@ -681,30 +681,21 @@ export default function OverviewPage() {
                       </p>
                     </div>
 
-                    <p className="text-[10px] text-text-secondary leading-tight">
-                      💡 <strong>บนมือถือ:</strong> สามารถแตะค้างที่รูปภาพ QR Code ด้านบน แล้วเลือก <strong>&quot;บันทึกภาพ&quot;</strong> หรือกดปุ่มด้านล่าง
+                    <p className="text-[10px] text-text-secondary leading-tight text-center">
+                      💡 <strong>บนมือถือ:</strong> สามารถแตะค้างที่รูปภาพ QR Code ด้านบน เพื่อ <strong>&quot;บันทึกภาพลงเครื่อง&quot;</strong> หรือกดปุ่มด้านล่าง
                     </p>
 
-                    <div className="space-y-1.5 pt-1">
-                      {/* Download QR Button (Web Share / Native Save) */}
-                      <button
-                        onClick={handleDownloadQr}
-                        disabled={!qrDataUrl || qrLoading}
-                        className="w-full py-2.5 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        {downloadStatus || "บันทึกภาพ QR Code ลงเครื่อง (แกลเลอรี)"}
-                      </button>
-
-                      {/* Fallback Direct Download Link */}
+                    <div className="pt-1">
+                      {/* Unified Reliable Download QR Button */}
                       <a
                         href={`/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}&format=png&download=1`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full py-1.5 px-3 rounded-xl bg-surface hover:bg-brand-soft/40 border border-border text-text-primary text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        download={`promptpay-${transferAmount ? `${transferAmount}thb` : "qr"}.png`}
+                        className="w-full py-2.5 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
                       >
-                        <ExternalLink className="w-3.5 h-3.5 text-text-secondary" />
-                        ดาวน์โหลดไฟล์ภาพโดยตรง (Direct Download)
+                        <Download className="w-4 h-4" />
+                        <span>ดาวน์โหลดภาพ QR Code</span>
                       </a>
                     </div>
                   </div>

@@ -19,15 +19,29 @@ export async function GET(req: NextRequest) {
     let bankName = "กสิกรไทย (KBANK)";
     let accountName = "กองกลาง Bank Buddy";
 
+    let defaultAmount: number | null = null;
+
     // If groupId is provided and target is not explicitly given, try fetching from group_settings
-    if (groupId && !target) {
+    if (!target) {
       try {
         const supabase = createAdminClient();
-        const { data: group } = await supabase
+        let groupQuery = supabase
           .from("groups")
-          .select("name, group_settings(rules)")
-          .eq("id", groupId)
-          .maybeSingle();
+          .select("name, group_settings(rules)");
+
+        if (groupId && groupId !== "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") {
+          groupQuery = groupQuery.eq("id", groupId);
+        }
+
+        let { data: group } = await groupQuery.limit(1).maybeSingle();
+        if (!group) {
+          const { data: firstGroup } = await supabase
+            .from("groups")
+            .select("name, group_settings(rules)")
+            .limit(1)
+            .maybeSingle();
+          group = firstGroup;
+        }
 
         if (group) {
           accountName = group.name;
@@ -41,6 +55,12 @@ export async function GET(req: NextRequest) {
           if (rules?.bank_name) {
             bankName = rules.bank_name;
           }
+          if (rules?.account_name) {
+            accountName = rules.account_name;
+          }
+          if (rules?.default_qr_amount && Number(rules.default_qr_amount) > 0) {
+            defaultAmount = Number(rules.default_qr_amount);
+          }
         }
       } catch (dbErr) {
         console.warn("[PromptPayRoute] Could not fetch group settings, using default:", dbErr);
@@ -52,7 +72,7 @@ export async function GET(req: NextRequest) {
       target = "0812345678";
     }
 
-    const amount = amountParam ? parseFloat(amountParam) : null;
+    const amount = amountParam ? parseFloat(amountParam) : defaultAmount;
     const validAmount = amount !== null && !isNaN(amount) && amount > 0 ? amount : null;
 
     const payload = generatePromptPayPayload(target, validAmount);

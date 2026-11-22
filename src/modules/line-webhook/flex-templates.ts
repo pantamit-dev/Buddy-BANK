@@ -1113,25 +1113,25 @@ export function createPromptPayFlexMessage(params: {
 
   const bubbleContents: messagingApi.FlexBubble = {
     type: "bubble",
-    size: "mega",
+    size: "kilo",
     header: {
       type: "box",
       layout: "vertical",
       backgroundColor: "#059669",
-      paddingAll: "16px",
+      paddingAll: "14px",
       contents: [
         {
           type: "text",
           text: "💸 โอนเงินเข้ากองกลาง",
           weight: "bold",
           color: "#ffffff",
-          size: "lg",
+          size: "md",
         },
         {
           type: "text",
           text: groupName,
           color: "#d1fae5",
-          size: "xs",
+          size: "xxs",
           margin: "xs",
         },
       ],
@@ -1139,8 +1139,8 @@ export function createPromptPayFlexMessage(params: {
     body: {
       type: "box",
       layout: "vertical",
-      spacing: "md",
-      paddingAll: "18px",
+      spacing: "sm",
+      paddingAll: "14px",
       contents: [
         // Amount Banner
         {
@@ -1285,13 +1285,13 @@ export function createPromptPayFlexMessage(params: {
     },
   };
 
-  // If public QR image is available, add hero image
+  // If public QR image is available, add compact hero image
   if (qrImageUrl) {
     bubbleContents.hero = {
       type: "image",
       url: qrImageUrl,
       size: "full",
-      aspectRatio: "1:1",
+      aspectRatio: "4:3",
       aspectMode: "fit",
       backgroundColor: "#ffffff",
     };

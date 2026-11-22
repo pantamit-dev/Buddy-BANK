@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("groups")
-      .select("*, profiles:owner_id(id, line_user_id, display_name, picture_url)");
+      .select("*, group_settings(rules, voting_quorum_percent, voting_duration_hours), profiles:owner_id(id, line_user_id, display_name, picture_url)");
 
     if (groupId && groupId !== "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") {
       query = query.eq("id", groupId);
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     if (!group) {
       const { data: firstGroup } = await supabase
         .from("groups")
-        .select("*, profiles:owner_id(id, line_user_id, display_name, picture_url)")
+        .select("*, group_settings(rules, voting_quorum_percent, voting_duration_hours), profiles:owner_id(id, line_user_id, display_name, picture_url)")
         .limit(1)
         .maybeSingle();
       group = firstGroup;
@@ -39,6 +39,11 @@ export async function GET(req: NextRequest) {
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
+
+    // Extract group settings
+    const groupSettingsRaw = (group as any)?.group_settings;
+    const groupSettings = Array.isArray(groupSettingsRaw) ? groupSettingsRaw[0] : groupSettingsRaw;
+    const rules = groupSettings?.rules || {};
 
     // Get financial balance
     const balance = await ledgerService.getGroupBalanceSummary(group.id);
@@ -52,6 +57,17 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       group,
+      settings: {
+        promptpayId: rules.promptpay_id || "",
+        bankAccountNo: rules.bank_account_no || "",
+        bankName: rules.bank_name || "",
+        accountName: rules.account_name || group.name || "",
+        defaultQrAmount: rules.default_qr_amount !== undefined ? rules.default_qr_amount : null,
+        minimumDeposit: rules.minimum_deposit || 0,
+        votingQuorumPercent: groupSettings?.voting_quorum_percent ?? 50,
+        votingDurationHours: groupSettings?.voting_duration_hours ?? 48,
+        rules,
+      },
       balance,
       memberCount: memberCount || 0,
     });
@@ -65,7 +81,20 @@ export async function PATCH(req: NextRequest) {
   try {
     const supabase = createAdminClient();
     const body = await req.json();
-    let { groupId, targetAmount, name, actorLineUserId } = body;
+    let {
+      groupId,
+      targetAmount,
+      name,
+      promptpayId,
+      bankAccountNo,
+      bankName,
+      accountName,
+      defaultQrAmount,
+      minimumDeposit,
+      votingQuorumPercent,
+      votingDurationHours,
+      actorLineUserId,
+    } = body;
 
     // 1. Resolve Target Group
     let group = null;
@@ -144,7 +173,79 @@ export async function PATCH(req: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, group: updated });
+    // 3. Upsert Group Settings if any related fields were provided
+    const hasSettingsUpdates =
+      promptpayId !== undefined ||
+      bankAccountNo !== undefined ||
+      bankName !== undefined ||
+      accountName !== undefined ||
+      defaultQrAmount !== undefined ||
+      minimumDeposit !== undefined ||
+      votingQuorumPercent !== undefined ||
+      votingDurationHours !== undefined;
+
+    let updatedSettings = null;
+    if (hasSettingsUpdates) {
+      const { data: currentSettings } = await supabase
+        .from("group_settings")
+        .select("*")
+        .eq("group_id", resolvedGroupId)
+        .maybeSingle();
+
+      const existingRules = (currentSettings?.rules as Record<string, any>) || {};
+      const newRules = {
+        ...existingRules,
+        ...(promptpayId !== undefined ? { promptpay_id: String(promptpayId).trim() } : {}),
+        ...(bankAccountNo !== undefined ? { bank_account_no: String(bankAccountNo).trim() } : {}),
+        ...(bankName !== undefined ? { bank_name: String(bankName).trim() } : {}),
+        ...(accountName !== undefined ? { account_name: String(accountName).trim() } : {}),
+        ...(defaultQrAmount !== undefined
+          ? { default_qr_amount: defaultQrAmount ? Number(defaultQrAmount) : null }
+          : {}),
+        ...(minimumDeposit !== undefined ? { minimum_deposit: Number(minimumDeposit) } : {}),
+      };
+
+      const { data: savedSettings, error: settingsErr } = await supabase
+        .from("group_settings")
+        .upsert(
+          {
+            group_id: resolvedGroupId,
+            rules: newRules,
+            ...(votingQuorumPercent !== undefined ? { voting_quorum_percent: Number(votingQuorumPercent) } : {}),
+            ...(votingDurationHours !== undefined ? { voting_duration_hours: Number(votingDurationHours) } : {}),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "group_id" }
+        )
+        .select()
+        .single();
+
+      if (settingsErr) {
+        console.error("[GroupsRoute] Failed to update group_settings:", settingsErr);
+      } else {
+        updatedSettings = savedSettings;
+      }
+    }
+
+    const savedRules = (updatedSettings?.rules as Record<string, any>) || {};
+
+    return NextResponse.json({
+      success: true,
+      group: updated,
+      settings: updatedSettings
+        ? {
+            promptpayId: savedRules.promptpay_id || "",
+            bankAccountNo: savedRules.bank_account_no || "",
+            bankName: savedRules.bank_name || "",
+            accountName: savedRules.account_name || updated.name || "",
+            defaultQrAmount: savedRules.default_qr_amount !== undefined ? savedRules.default_qr_amount : null,
+            minimumDeposit: savedRules.minimum_deposit || 0,
+            votingQuorumPercent: updatedSettings.voting_quorum_percent,
+            votingDurationHours: updatedSettings.voting_duration_hours,
+            rules: savedRules,
+          }
+        : undefined,
+    });
   } catch (error) {
     console.error("[GroupsRoute] PATCH error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
