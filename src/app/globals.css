@@ -4,31 +4,181 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    color-scheme: light dark;
+
+    /* Design Tokens - Light Mode (Default) */
+    --page-bg: #F5F9F7;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --brand: #075C4D;
+    --brand-strong: #06483F;
+    --brand-soft: #DDF4EA;
+    --text-primary: #173D35;
+    --text-secondary: #647B74;
+    --border: #DCE8E2;
+    --positive: #087963;
+    --negative: #B83A36;
+    --warning: #9A6500;
+
+    /* Shadcn system mappings */
+    --background: 150 20% 97%;
+    --foreground: 168 45% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 168 45% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 168 45% 16%;
+    --primary: 169 86% 19%;
+    --primary-foreground: 150 40% 98%;
+    --secondary: 154 20% 94%;
+    --secondary-foreground: 168 45% 16%;
+    --muted: 154 20% 94%;
+    --muted-foreground: 165 10% 43%;
+    --accent: 154 30% 92%;
+    --accent-foreground: 168 45% 16%;
+    --destructive: 2 54% 47%;
+    --destructive-foreground: 0 0% 98%;
+    --border-hsl: 154 20% 89%;
+    --input: 154 20% 89%;
+    --ring: 169 86% 19%;
+    --radius: 0.875rem;
+  }
+
+  /* Explicit light theme */
+  [data-theme="light"],
+  :root:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+    --page-bg: #F5F9F7;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --brand: #075C4D;
+    --brand-strong: #06483F;
+    --brand-soft: #DDF4EA;
+    --text-primary: #173D35;
+    --text-secondary: #647B74;
+    --border: #DCE8E2;
+    --positive: #087963;
+    --negative: #B83A36;
+    --warning: #9A6500;
+
+    --background: 150 20% 97%;
+    --foreground: 168 45% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 168 45% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 168 45% 16%;
+    --primary: 169 86% 19%;
+    --primary-foreground: 150 40% 98%;
+    --secondary: 154 20% 94%;
+    --secondary-foreground: 168 45% 16%;
+    --muted: 154 20% 94%;
+    --muted-foreground: 165 10% 43%;
+    --accent: 154 30% 92%;
+    --accent-foreground: 168 45% 16%;
+    --destructive: 2 54% 47%;
+    --destructive-foreground: 0 0% 98%;
+    --border-hsl: 154 20% 89%;
+    --input: 154 20% 89%;
+    --ring: 169 86% 19%;
+  }
+
+  /* Explicit dark theme */
+  [data-theme="dark"],
+  :root:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+    --page-bg: #101815;
+    --surface: #19231F;
+    --surface-raised: #22312B;
+    --brand: #82D9B2;
+    --brand-strong: #063B32;
+    --brand-soft: #203D32;
+    --text-primary: #F2F7F4;
+    --text-secondary: #B2C2BB;
+    --border: #34443D;
+    --positive: #82D9B2;
+    --negative: #FF8A80;
+    --warning: #FFD166;
+
+    --background: 156 20% 8%;
+    --foreground: 150 15% 96%;
+    --card: 156 17% 12%;
+    --card-foreground: 150 15% 96%;
+    --popover: 156 17% 12%;
+    --popover-foreground: 150 15% 96%;
+    --primary: 153 53% 68%;
+    --primary-foreground: 168 83% 10%;
+    --secondary: 156 14% 18%;
+    --secondary-foreground: 150 15% 96%;
+    --muted: 156 14% 18%;
+    --muted-foreground: 153 10% 73%;
+    --accent: 156 18% 22%;
+    --accent-foreground: 150 15% 96%;
+    --destructive: 4 100% 75%;
+    --destructive-foreground: 156 20% 8%;
+    --border-hsl: 153 13% 23%;
+    --input: 153 13% 23%;
+    --ring: 153 53% 68%;
+  }
+
+  /* System dark mode fallback when no override is active */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page-bg: #101815;
+      --surface: #19231F;
+      --surface-raised: #22312B;
+      --brand: #82D9B2;
+      --brand-strong: #063B32;
+      --brand-soft: #203D32;
+      --text-primary: #F2F7F4;
+      --text-secondary: #B2C2BB;
+      --border: #34443D;
+      --positive: #82D9B2;
+      --negative: #FF8A80;
+      --warning: #FFD166;
+
+      --background: 156 20% 8%;
+      --foreground: 150 15% 96%;
+      --card: 156 17% 12%;
+      --card-foreground: 150 15% 96%;
+      --popover: 156 17% 12%;
+      --popover-foreground: 150 15% 96%;
+      --primary: 153 53% 68%;
+      --primary-foreground: 168 83% 10%;
+      --secondary: 156 14% 18%;
+      --secondary-foreground: 150 15% 96%;
+      --muted: 156 14% 18%;
+      --muted-foreground: 153 10% 73%;
+      --accent: 156 18% 22%;
+      --accent-foreground: 150 15% 96%;
+      --destructive: 4 100% 75%;
+      --destructive-foreground: 156 20% 8%;
+      --border-hsl: 153 13% 23%;
+      --input: 153 13% 23%;
+      --ring: 153 53% 68%;
+    }
   }
 }
 
 body {
-  background-color: #f8fafc;
-  color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--page-bg);
+  color: var(--text-primary);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars that adapt to dark/light color scheme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }

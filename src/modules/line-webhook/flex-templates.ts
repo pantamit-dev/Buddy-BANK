@@ -7,77 +7,183 @@ import { formatCurrency, formatThaiDate } from "@/lib/utils";
 export function createWelcomeFlexMessage(liffUrl: string): messagingApi.FlexMessage {
   return {
     type: "flex",
-    altText: "ยินดีต้อนรับสู่ Money Pool (Bank Buddy)",
+    altText: "ยินดีต้อนรับสู่ Money Pool (Bank Buddy) — ระบบจัดการเงินกองกลาง",
     contents: {
       type: "bubble",
+      size: "mega",
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#059669",
+        backgroundColor: "#087963",
         paddingAll: "20px",
         contents: [
           {
             type: "text",
-            text: "🏦 Money Pool (Bank Buddy)",
+            text: "🏦 Bank Buddy (เพื่อนพึ่งพายามยาก)",
             weight: "bold",
             color: "#ffffff",
             size: "lg",
           },
           {
             type: "text",
-            text: "ระบบจัดการเงินกองกลางอัตโนมัติ",
-            color: "#d1fae5",
+            text: "ระบบจัดการเงินกองกลางอัตโนมัติ & บันทึกสลิป",
+            color: "#E5F4EE",
             size: "xs",
             margin: "xs",
+            weight: "bold",
           },
         ],
       },
       body: {
         type: "box",
         layout: "vertical",
+        paddingAll: "20px",
         spacing: "md",
         contents: [
           {
             type: "text",
-            text: "ยินดีต้อนรับสมาชิกทุกคน! กรุณากดลงทะเบียนเพื่อร่วมเป็นสมาชิกกองกลางและส่งสลิปโอนเงิน",
+            text: "ยินดีต้อนรับสมาชิกทุกคน! 👋",
             wrap: true,
-            size: "sm",
-            color: "#334155",
+            size: "md",
+            weight: "bold",
+            color: "#0f172a",
+          },
+          {
+            type: "text",
+            text: "ระบบพร้อมช่วยบันทึกสลิป ตรวจสอบยอดเงิน และแสดงรายงานแบบโปร่งใส กรุณายืนยันบัญชีเพื่อเริ่มต้นใช้งาน",
+            wrap: true,
+            size: "xs",
+            color: "#475569",
           },
           {
             type: "separator",
             margin: "md",
+            color: "#e2e8f0",
           },
           {
             type: "box",
             layout: "vertical",
             margin: "md",
-            spacing: "xs",
+            spacing: "sm",
             contents: [
               {
                 type: "text",
-                text: "📌 คำสั่งที่ใช้งานได้ในแชท:",
+                text: "📖 คู่มือเริ่มต้นใช้งาน (Quick Guide):",
                 weight: "bold",
-                size: "xs",
-                color: "#0f172a",
+                size: "sm",
+                color: "#087963",
               },
               {
-                type: "text",
-                text: "• #ยอดรวม : ดูยอดเงินกองกลางและเป้าหมาย",
-                size: "xs",
-                color: "#64748b",
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "1️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ยืนยันบัญชีผู้ใช้",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "กดปุ่ม 'เปิด Mini App ยืนยันบัญชี' ด้านล่างเพื่อผูกบัญชีและตั้งชื่อสมาชิก",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
               },
               {
-                type: "text",
-                text: "• #ยอดฉัน : ดูยอดเงินที่ตนเองโอนสมทบ",
-                size: "xs",
-                color: "#64748b",
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "2️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ส่งสลิปโอนเงินเข้ากลุ่ม",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "เมื่อโอนเงินเข้ากองกลาง ส่งรูปสลิปลงในแชท AI OCR จะอ่านยอดเงินและส่งให้เหรัญญิกบันทึก",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
               },
               {
-                type: "text",
-                text: "• #ช่วยเหลือ : ดูคำแนะนำการใช้งาน",
-                size: "xs",
-                color: "#64748b",
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "3️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "คำสั่งด่วนเช็คยอดเงิน",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "• #ยอดรวม : เช็คยอดเงินกองกลางและเป้าหมาย\n• #ยอดฉัน : เช็คยอดเงินสะสมของตนเอง\n• #ช่วยเหลือ : ดูคำแนะนำและคำสั่งทั้งหมด",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "4️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "AI ผู้ช่วยอัจฉริยะ",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "พิมพ์ถามหรือแท็ก @BankBuddy เพื่อสอบถามยอดเงินและข้อมูลกองกลางได้ตลอด 24 ชม.",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
               },
             ],
           },
@@ -86,16 +192,271 @@ export function createWelcomeFlexMessage(liffUrl: string): messagingApi.FlexMess
       footer: {
         type: "box",
         layout: "vertical",
+        spacing: "sm",
+        paddingAll: "16px",
+        backgroundColor: "#f8fafc",
         contents: [
           {
             type: "button",
             style: "primary",
-            color: "#059669",
+            color: "#087963",
+            height: "sm",
             action: {
               type: "uri",
-              label: "📱 เปิดระบบกองกลาง (Mini App)",
+              label: "🚀 เปิด Mini App ยืนยันบัญชี",
               uri: liffUrl,
             },
+          },
+          {
+            type: "text",
+            text: "🛡️ ปลอดภัย • โปร่งใส • ตรวจสอบได้ทุกธุรกรรม",
+            size: "xxs",
+            color: "#94a3b8",
+            align: "center",
+            margin: "xs",
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * Creates the New Member Welcome Flex Message with Quick Guide and Mini App Verification Button
+ * Triggered on LINE 'memberJoined' webhook event or when new members are invited
+ */
+export function createNewMemberWelcomeFlexMessage(params: {
+  liffUrl: string;
+  memberNames?: string[];
+  groupName?: string;
+}): messagingApi.FlexMessage {
+  const { liffUrl, memberNames = [], groupName } = params;
+
+  const namesText =
+    memberNames.length > 0
+      ? memberNames.length === 1
+        ? `คุณ ${memberNames[0]}`
+        : `คุณ ${memberNames.slice(0, 3).join(", ")}${memberNames.length > 3 ? " และเพื่อนๆ" : ""}`
+      : "สมาชิกใหม่ทุกท่าน";
+
+  const altGreeting = `ยินดีต้อนรับ ${namesText} สู่ ${groupName || "กลุ่มกองกลาง (Bank Buddy)"} — คู่มือเบื้องต้น & ยืนยันบัญชี`;
+
+  return {
+    type: "flex",
+    altText: altGreeting,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#087963",
+        paddingAll: "20px",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "🎉 ยินดีต้อนรับสมาชิกใหม่!",
+                weight: "bold",
+                color: "#ffffff",
+                size: "lg",
+                flex: 1,
+              },
+            ],
+          },
+          {
+            type: "text",
+            text: groupName ? `กลุ่ม: ${groupName}` : "Bank Buddy — เพื่อนพึ่งพายามยาก",
+            color: "#E5F4EE",
+            size: "xs",
+            margin: "xs",
+            weight: "bold",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        paddingAll: "20px",
+        spacing: "md",
+        contents: [
+          {
+            type: "text",
+            text: `ยินดีต้อนรับ ${namesText} สู่กลุ่มกองกลาง 👋`,
+            wrap: true,
+            size: "md",
+            weight: "bold",
+            color: "#0f172a",
+          },
+          {
+            type: "text",
+            text: "เพื่อความถูกต้อง โปร่งใส และปลอดภัยของเงินกองกลาง กรุณากดปุ่มด้านล่างเพื่อเปิด LINE Mini App และยืนยันบัญชีก่อนเริ่มใช้งานครับ",
+            wrap: true,
+            size: "xs",
+            color: "#475569",
+          },
+          {
+            type: "separator",
+            margin: "md",
+            color: "#e2e8f0",
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "md",
+            spacing: "sm",
+            contents: [
+              {
+                type: "text",
+                text: "📖 คู่มือเริ่มต้นใช้งาน (Quick Guide):",
+                weight: "bold",
+                size: "sm",
+                color: "#087963",
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "1️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ยืนยันบัญชีผู้ใช้",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "กดปุ่ม 'เปิด Mini App ยืนยันบัญชี' ด้านล่างเพื่อผูกบัญชีและตั้งชื่อสมาชิก",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "2️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ส่งสลิปโอนเงินเข้าแชท",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "เมื่อโอนเงินเข้ากองกลาง ส่งรูปสลิปลงในแชทกลุ่มได้ทันที AI OCR จะช่วยอ่านยอดเงินและส่งให้เหรัญญิกบันทึก",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "3️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "คำสั่งด่วนเช็คยอดเงิน",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "• #ยอดรวม : เช็คยอดเงินกองกลางและเป้าหมาย\n• #ยอดฉัน : เช็คยอดเงินสะสมของตนเอง\n• #ช่วยเหลือ : ดูคำแนะนำและคำสั่งทั้งหมด",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  { type: "text", text: "4️⃣", size: "sm", flex: 0 },
+                  {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "AI ผู้ช่วยอัจฉริยะ",
+                        weight: "bold",
+                        size: "xs",
+                        color: "#0f172a",
+                      },
+                      {
+                        type: "text",
+                        text: "พิมพ์ถามหรือแท็ก @BankBuddy ในกลุ่มเพื่อสอบถามยอดเงินและข้อมูลกองกลางได้ตลอด 24 ชม.",
+                        size: "xxs",
+                        color: "#64748b",
+                        wrap: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "16px",
+        backgroundColor: "#f8fafc",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: "#087963",
+            height: "sm",
+            action: {
+              type: "uri",
+              label: "🚀 เปิด Mini App ยืนยันบัญชี",
+              uri: liffUrl,
+            },
+          },
+          {
+            type: "text",
+            text: "🛡️ ปลอดภัย • โปร่งใส • ตรวจสอบได้ทุกธุรกรรม",
+            size: "xxs",
+            color: "#94a3b8",
+            align: "center",
+            margin: "xs",
           },
         ],
       },
@@ -147,7 +508,7 @@ export function createSlipReviewFlexMessage(params: {
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#0284c7",
+        backgroundColor: "#f59e0b",
         paddingAll: "15px",
         contents: [
           {
@@ -169,14 +530,14 @@ export function createSlipReviewFlexMessage(params: {
             layout: "horizontal",
             contents: [
               { type: "text", text: "ผู้ส่งสลิป", size: "sm", color: "#64748b", flex: 2 },
-              { type: "text", text: uploaderName, size: "sm", weight: "bold", color: "#0f172a", flex: 3, wrap: true },
+              { type: "text", text: uploaderName, size: "sm", weight: "bold", color: "#0f172a", flex: 3, wrap: true, align: "end" },
             ],
           },
           {
             type: "box",
             layout: "horizontal",
             contents: [
-              { type: "text", text: "ยอดเงินที่ตรวจพบ", size: "sm", color: "#64748b", flex: 2 },
+              { type: "text", text: "จำนวนเงิน", size: "sm", color: "#64748b", flex: 2 },
               {
                 type: "text",
                 text: amount !== null ? formatCurrency(amount) : "รอการระบุ",
@@ -184,6 +545,7 @@ export function createSlipReviewFlexMessage(params: {
                 weight: "bold",
                 color: "#059669",
                 flex: 3,
+                align: "end",
               },
             ],
           },
@@ -200,6 +562,7 @@ export function createSlipReviewFlexMessage(params: {
                 color: "#1e293b",
                 flex: 3,
                 wrap: true,
+                align: "end",
               },
             ],
           },
@@ -218,6 +581,7 @@ export function createSlipReviewFlexMessage(params: {
                 size: "xs",
                 color: "#334155",
                 flex: 3,
+                align: "end",
               },
             ],
           },
@@ -226,7 +590,7 @@ export function createSlipReviewFlexMessage(params: {
             layout: "horizontal",
             contents: [
               { type: "text", text: "รหัสอ้างอิง", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: bankReference || "ไม่ระบุ", size: "xs", color: "#334155", flex: 3 },
+              { type: "text", text: bankReference || "ไม่ระบุ", size: "xs", color: "#334155", flex: 3, wrap: true, align: "end" },
             ],
           },
         ],
@@ -243,9 +607,9 @@ export function createSlipReviewFlexMessage(params: {
             height: "sm",
             action: {
               type: "postback",
-              label: "✅ อนุมัติ",
+              label: "✅ บันทึก",
               data: `action=approve&depositId=${depositId}&groupId=${groupId}`,
-              displayText: `อนุมัติรายการ ${formatCurrency(amount)}`,
+              displayText: `บันทึกรายการ ${formatCurrency(amount)}`,
             },
           },
           {
@@ -255,9 +619,9 @@ export function createSlipReviewFlexMessage(params: {
             height: "sm",
             action: {
               type: "postback",
-              label: "❌ ปฏิเสธ",
+              label: "❌ ยกเลิก",
               data: `action=reject&depositId=${depositId}&groupId=${groupId}`,
-              displayText: "ปฏิเสธสลิปนี้",
+              displayText: "ยกเลิกสลิปนี้",
             },
           },
         ],
@@ -323,7 +687,7 @@ export function createDepositApprovedFlexMessage(params: {
           },
           {
             type: "text",
-            text: `อนุมัติโดย: ${reviewerName}`,
+            text: `บันทึกโดย: ${reviewerName}`,
             size: "xs",
             color: "#94a3b8",
             align: "end",

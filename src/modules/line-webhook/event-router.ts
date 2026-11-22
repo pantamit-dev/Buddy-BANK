@@ -8,6 +8,7 @@ import { parseBankSlipText } from "@/modules/ocr/parser";
 import { extractSlipWithOpenThai } from "@/modules/ocr/openthai-extractor";
 import {
   createWelcomeFlexMessage,
+  createNewMemberWelcomeFlexMessage,
   createSlipReviewFlexMessage,
   createDepositApprovedFlexMessage,
   createDuplicateSlipFlexMessage,
@@ -78,13 +79,26 @@ export class LineEventRouter {
       });
     }
 
-    // 1. Join Event (Bot added to a group)
-    if (event.type === "join" && event.source.type === "group") {
-      const groupId = event.source.groupId;
+    // 1. Join Event (Bot added to a group/room)
+    if (event.type === "join" && (event.source.type === "group" || event.source.type === "room")) {
+      const groupId = (event.source as any).groupId || (event.source as any).roomId;
       return await this.handleGroupJoin(groupId, event.replyToken);
     }
 
-    // 2. Text Message Event
+    // 2. Member Joined Event (New members invited or joined the group/room)
+    if (
+      event.type === "memberJoined" &&
+      (event.source.type === "group" || event.source.type === "room")
+    ) {
+      const groupId = (event.source as any).groupId || (event.source as any).roomId;
+      return await this.handleMemberJoined({
+        groupId,
+        joinedMembers: event.joined?.members || [],
+        replyToken: event.replyToken,
+      });
+    }
+
+    // 3. Text Message Event
     if (
       event.type === "message" &&
       event.message.type === "text" &&
@@ -98,7 +112,7 @@ export class LineEventRouter {
       });
     }
 
-    // 3. Image Message Event (Slip submission)
+    // 4. Image Message Event (Slip submission)
     if (
       event.type === "message" &&
       event.message.type === "image" &&
@@ -112,7 +126,7 @@ export class LineEventRouter {
       });
     }
 
-    // 4. Postback Event (Slip approval / rejection action)
+    // 5. Postback Event (Slip approval / rejection action)
     if (event.type === "postback") {
       return await this.handlePostback({
         data: event.postback.data,
@@ -131,7 +145,7 @@ export class LineEventRouter {
     // Upsert group record
     const { data: group } = await this.supabase
       .from("groups")
-      .select("id")
+      .select("id, name")
       .eq("line_group_id", lineGroupId)
       .maybeSingle();
 
@@ -144,8 +158,8 @@ export class LineEventRouter {
     }
 
     const liffUrl = process.env.NEXT_PUBLIC_LIFF_ID
-      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?lineGroupId=${lineGroupId}`
-      : `https://line.me?lineGroupId=${lineGroupId}`;
+      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?lineGroupId=${lineGroupId}&action=verify`
+      : `https://line.me?lineGroupId=${lineGroupId}&action=verify`;
 
     if (replyToken) {
       const welcomeFlex = createWelcomeFlexMessage(liffUrl);
@@ -153,6 +167,74 @@ export class LineEventRouter {
     }
 
     return { success: true, event: "join", lineGroupId };
+  }
+
+  /**
+   * Handles Member Joined Group Event when new members join or are invited
+   */
+  private async handleMemberJoined(params: {
+    groupId: string;
+    joinedMembers: Array<{ type: string; userId?: string }>;
+    replyToken?: string;
+  }) {
+    const { groupId, joinedMembers, replyToken } = params;
+
+    // 1. Ensure group record exists
+    let groupName = "กลุ่มกองกลาง";
+    const { data: group } = await this.supabase
+      .from("groups")
+      .select("id, name")
+      .eq("line_group_id", groupId)
+      .maybeSingle();
+
+    if (!group) {
+      await this.supabase.from("groups").insert({
+        line_group_id: groupId,
+        name: groupName,
+        target_amount: 10000.0,
+      });
+    } else if (group.name) {
+      groupName = group.name;
+    }
+
+    // 2. Fetch member display names if possible
+    const memberNames: string[] = [];
+    if (joinedMembers && joinedMembers.length > 0) {
+      for (const m of joinedMembers) {
+        if (m.userId) {
+          try {
+            const profile = await this.lineClient.getGroupMemberProfile(groupId, m.userId);
+            if (profile?.displayName) {
+              memberNames.push(profile.displayName);
+            }
+          } catch (err) {
+            console.warn("[LineEventRouter] Could not fetch group member profile:", err);
+          }
+        }
+      }
+    }
+
+    // 3. Construct LIFF URL with lineGroupId and action=verify
+    const liffUrl = process.env.NEXT_PUBLIC_LIFF_ID
+      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?lineGroupId=${groupId}&action=verify`
+      : `https://line.me?lineGroupId=${groupId}&action=verify`;
+
+    if (replyToken) {
+      const welcomeFlex = createNewMemberWelcomeFlexMessage({
+        liffUrl,
+        memberNames,
+        groupName,
+      });
+      await this.lineClient.replyMessage(replyToken, [welcomeFlex]);
+    }
+
+    return {
+      success: true,
+      event: "memberJoined",
+      groupId,
+      joinedCount: joinedMembers?.length || 0,
+      memberNames,
+    };
   }
 
   /**
@@ -457,7 +539,7 @@ export class LineEventRouter {
         await this.lineClient.replyMessage(replyToken, [
           {
             type: "text",
-            text: "⚠️ ขออภัย เฉพาะเจ้าของกลุ่มหรือเหรัญญิกเท่านั้นที่มีสิทธิ์อนุมัติหรือปฏิเสธสลิป",
+            text: "⚠️ ขออภัย เฉพาะเจ้าของกลุ่มหรือเหรัญญิกเท่านั้นที่มีสิทธิ์บันทึกหรือยกเลิกสลิป",
           },
         ]);
       }
@@ -473,7 +555,7 @@ export class LineEventRouter {
         await this.lineClient.replyMessage(replyToken, [
           {
             type: "text",
-            text: "⚠️ ไม่สามารถอนุมัติได้เนื่องจากตรวจไม่พบยอดเงินในสลิป\nกรุณาเปิดหน้า 'ตรวจสลิป' ใน Mini App เพื่อระบุจำนวนเงินด้วยตนเอง",
+            text: "⚠️ ไม่สามารถบันทึกได้เนื่องจากตรวจไม่พบยอดเงินในสลิป\nกรุณาเปิดหน้า 'ตรวจสลิป' ใน Mini App เพื่อระบุจำนวนเงินด้วยตนเอง",
           },
         ]);
       }
@@ -501,6 +583,13 @@ export class LineEventRouter {
       });
 
       await this.lineClient.replyMessage(replyToken, [confirmFlex]);
+    } else if (action === "reject" && replyToken) {
+      await this.lineClient.replyMessage(replyToken, [
+        {
+          type: "text",
+          text: `❌ ยกเลิกสลิปเรียบร้อยแล้ว`,
+        },
+      ]);
     }
 
     return { success: true, action, depositId };

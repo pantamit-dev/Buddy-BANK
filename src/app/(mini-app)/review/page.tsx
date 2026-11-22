@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLiff } from "@/shared/context/liff-context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Badge } from "@/shared/components/ui/badge";
@@ -13,9 +13,9 @@ import {
   X,
   ExternalLink,
   Receipt,
-  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
-import { invalidateOverviewCache } from "../overview/page";
+import { invalidateOverviewCache } from "@/shared/lib/overview-cache";
 
 export default function ReviewPage() {
   const { profile, groupId } = useLiff();
@@ -58,24 +58,24 @@ export default function ReviewPage() {
       };
 
       if (customAmount && !isNaN(Number(customAmount)) && Number(customAmount) > 0) {
-        payload.adjustedAmount = Number(customAmount);
+        payload.customAmount = Number(customAmount);
       }
 
       const res = await fetch("/api/deposits", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         invalidateOverviewCache(groupId);
-        await fetchPending();
+        setPendingDeposits((prev) => prev.filter((d) => d.id !== depositId));
       } else {
         const err = await res.json();
-        alert(err.error || "เกิดข้อผิดพลาดในการตรวจสอบสลิป");
+        alert(err.error || "ดำเนินการไม่สำเร็จ");
       }
     } catch (e) {
-      alert("ไม่สามารถดำเนินการได้: " + String(e));
+      alert("เกิดข้อผิดพลาดในการตรวจสอบ: " + String(e));
     } finally {
       setProcessingId(null);
     }
@@ -83,35 +83,40 @@ export default function ReviewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between pb-1">
         <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
-            <CheckSquare className="w-5 h-5 text-emerald-600" /> ตรวจสอบสลิปโอนเงิน
+          <h2 className="text-base font-extrabold text-text-primary tracking-tight flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-brand" />
+            กิจกรรมตรวจสลิป
           </h2>
-          <p className="text-xs text-slate-500">
-            รายการที่รอตรวจสอบ ({pendingDeposits.length} รายการ)
+          <p className="text-xs text-text-secondary mt-0.5">
+            ยืนยันความถูกต้องของสลิปเพื่อบันทึกลงบัญชีแยกประเภท
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="text-xs h-8"
           onClick={fetchPending}
+          className="text-xs h-8 px-2.5 rounded-xl border-border hover:bg-brand-soft/40 text-text-secondary"
           disabled={loading}
         >
+          <RotateCcw className="w-3.5 h-3.5 mr-1" />
           รีเฟรช
         </Button>
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-xs text-slate-400">
+        <div className="p-12 text-center text-xs text-text-secondary">
           กำลังค้นหารายการสลิปที่รอตรวจสอบ...
         </div>
       ) : pendingDeposits.length === 0 ? (
-        <Card className="p-8 text-center bg-white border-slate-200">
-          <Receipt className="w-10 h-10 mx-auto text-emerald-500 mb-2 opacity-80" />
-          <h3 className="text-sm font-bold text-slate-900">ไม่มีสลิปรอตรวจสอบ 🎉</h3>
-          <p className="text-xs text-slate-400 mt-1">
+        <Card className="p-8 text-center bg-surface border-border shadow-xs rounded-2xl">
+          <Receipt className="w-10 h-10 mx-auto text-brand mb-2 opacity-80" />
+          <h3 className="text-sm font-extrabold text-text-primary">
+            ไม่มีสลิปรอตรวจสอบ 🎉
+          </h3>
+          <p className="text-xs text-text-secondary mt-1">
             สลิปทั้งหมดได้รับการอนุมัติและบันทึกลงบัญชีเรียบร้อยแล้ว
           </p>
         </Card>
@@ -122,17 +127,20 @@ export default function ReviewPage() {
             const isBusy = processingId === dep.id;
 
             return (
-              <Card key={dep.id} className="overflow-hidden border-slate-200 shadow-sm">
-                <CardHeader className="p-3.5 bg-slate-50 border-b border-slate-100 flex flex-row items-center justify-between">
+              <Card
+                key={dep.id}
+                className="overflow-hidden border-border bg-surface shadow-xs rounded-2xl"
+              >
+                <CardHeader className="p-3.5 bg-brand-soft/30 border-b border-border flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">
+                    <span className="text-xs font-bold text-text-primary">
                       {memberProfile.display_name || "สมาชิก"}
                     </span>
-                    <Badge variant="warning" className="text-[10px]">
-                      รออนุมัติ
+                    <Badge className="text-[10px] bg-amber-500/15 text-warning border border-amber-500/25 font-bold">
+                      รอยืนยัน
                     </Badge>
                   </div>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-text-secondary">
                     {formatThaiDate(dep.created_at)}
                   </span>
                 </CardHeader>
@@ -144,34 +152,38 @@ export default function ReviewPage() {
                         href={dep.signedUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="relative block w-20 h-24 bg-slate-100 rounded border border-slate-200 overflow-hidden shrink-0 group"
+                        className="relative block w-20 h-24 bg-page rounded-xl border border-border overflow-hidden shrink-0 group"
                       >
                         <img
                           src={dep.signedUrl}
                           alt="สลิปโอนเงิน"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <ExternalLink className="w-4 h-4 text-white" />
                         </div>
                       </a>
                     ) : (
-                      <div className="w-20 h-24 bg-slate-100 rounded border border-slate-200 flex flex-col items-center justify-center text-slate-400 shrink-0">
-                        <Receipt className="w-6 h-6 mb-1" />
+                      <div className="w-20 h-24 bg-page rounded-xl border border-border flex flex-col items-center justify-center text-text-secondary shrink-0">
+                        <Receipt className="w-6 h-6 mb-1 text-text-secondary/60" />
                         <span className="text-[9px]">ไม่มีรูปภาพ</span>
                       </div>
                     )}
 
-                    <div className="flex-1 space-y-1 text-xs">
+                    <div className="flex-1 space-y-1.5 text-xs">
                       <div>
-                        <span className="text-slate-400 text-[10px]">ยอดที่ OCR ตรวจพบ:</span>
-                        <p className="font-bold text-emerald-600 text-sm">
+                        <span className="text-text-secondary text-[10px]">
+                          ยอดที่ตรวจพบ:
+                        </span>
+                        <p className="font-extrabold text-brand text-sm tabular-nums">
                           {formatCurrency(dep.detected_amount)}
                         </p>
                       </div>
                       <div>
-                        <span className="text-slate-400 text-[10px]">รหัสอ้างอิง:</span>
-                        <p className="font-mono text-[10px] text-slate-700">
+                        <span className="text-text-secondary text-[10px]">
+                          รหัสอ้างอิง:
+                        </span>
+                        <p className="font-mono text-[10px] text-text-primary">
                           {dep.bank_reference || "ไม่พบรหัส"}
                         </p>
                       </div>
@@ -179,9 +191,9 @@ export default function ReviewPage() {
                   </div>
 
                   {/* Manual adjustment input */}
-                  <div className="space-y-1 pt-1 border-t border-slate-100">
-                    <label className="text-[10px] text-slate-500 font-medium">
-                      แก้ไขยอดเงินก่อนอนุมัติ (หาก OCR อ่านผิดพลาด):
+                  <div className="space-y-1 pt-1 border-t border-border">
+                    <label className="text-[10px] text-text-secondary font-medium">
+                      แก้ไขยอดเงินก่อนบันทึก (หาก OCR อ่านคลาดเคลื่อน):
                     </label>
                     <Input
                       type="number"
@@ -194,7 +206,7 @@ export default function ReviewPage() {
                           [dep.id]: e.target.value,
                         }))
                       }
-                      className="h-8 text-xs font-mono"
+                      className="h-8 text-xs font-mono rounded-xl border-border bg-page text-text-primary"
                     />
                   </div>
 
@@ -203,22 +215,22 @@ export default function ReviewPage() {
                     <Button
                       variant="default"
                       size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-xs h-8 gap-1"
+                      className="bg-brand hover:bg-brand-strong text-white text-xs h-9 rounded-xl font-bold gap-1 shadow-xs"
                       disabled={isBusy}
                       onClick={() => handleReviewAction(dep.id, "approve")}
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      {isBusy ? "กำลังบันทึก..." : "อนุมัติ"}
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      {isBusy ? "กำลังบันทึก..." : "อนุมัติบันทึก"}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-rose-600 border-rose-200 hover:bg-rose-50 text-xs h-8 gap-1"
+                      className="text-negative border-rose-500/30 hover:bg-rose-500/10 text-xs h-9 rounded-xl font-bold gap-1"
                       disabled={isBusy}
                       onClick={() => handleReviewAction(dep.id, "reject")}
                     >
-                      <X className="w-3.5 h-3.5" />
-                      {isBusy ? "กำลังบันทึก..." : "ปฏิเสธ"}
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      {isBusy ? "กำลังยกเลิก..." : "ปฏิเสธสลิป"}
                     </Button>
                   </div>
                 </CardContent>

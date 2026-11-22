@@ -85,6 +85,12 @@ XXX XXX 5545
       expect(amount).toBe(500.0);
     });
 
+    it("handles OCR noise with multiple dots and letter O e.g. 4.5.OO -> 45.00", () => {
+      const text = "จำนวน:\n4.5.OO บาท\nค่าธรรมเนียม:\nO.00 บาท";
+      const amount = extractAmount(text);
+      expect(amount).toBe(45.0);
+    });
+
     it("returns null when no valid amount is present", () => {
       const text = "สวัสดีครับ ขอแจ้งเลขบัญชีสำหรับโอนเงิน";
       const amount = extractAmount(text);
@@ -197,6 +203,12 @@ XXX XXX 5545
       const text = "016322182344CPM18917 โอนเงิน 100 บาท";
       const ref = extractBankReference(text);
       expect(ref).toBe("016322182344CPM18917");
+    });
+
+    it("corrects leading 'O' in reference number to '0'", () => {
+      const text = "เลขที่รายการ:\nสแกน\nO16321115001DPM07124 ตรวจสอบสลิป";
+      const ref = extractBankReference(text);
+      expect(ref).toBe("016321115001DPM07124");
     });
   });
 
@@ -378,6 +390,31 @@ XXX XXX 5545
       `);
       // Issuer is SCB (from "จาก ธ.ไทยพาณิชย์"), not KBank (recipient)
       expect(slip.bankName).toBe("SCB");
+    });
+
+    it("parses KBank bill payment slip with OCR noise in amount 4.5.OO and reference O16...", () => {
+      const rawText = `จ่ายบิลสำเร็จ
+17 พ.ย. 69 11:50 น.
+นาย พันธมิตร ส
+ธ.กสิกรไทย
+XXX-X-X5874-X
+ร้านถุงเงิน (ร้านแกงใต้)
+0858008006000824753
+KANDABUNRID
+จำนวน:
+4.5.OO บาท
+ค่าธรรมเนียม:
+O.00 บาท
+เลขที่รายการ:
+สแกน
+O16321115001DPM07124 ตรวจสอบสลิป`;
+
+      const result = parseBankSlipText(rawText);
+      expect(result.amount).toBe(45.0);
+      expect(result.bankReference).toBe("016321115001DPM07124");
+      expect(result.bankName).toBe("KBank");
+      expect(result.transferDate).toBe("17 พ.ย. 69 11:50 น.");
+      expect(result.formattedDate).toBe("17 พ.ย. 2569 11:50 น.");
     });
   });
 });

@@ -198,6 +198,49 @@ describe("LINE Event Router Integration Tests", () => {
     expect(messages[0].altText).toContain("ยินดีต้อนรับสู่ Money Pool");
   });
 
+  it("handles 'memberJoined' event by welcoming new members with quick guide and verify button", async () => {
+    mockLineClient.getGroupMemberProfile.mockResolvedValueOnce({
+      displayName: "สมชาย ใจดี",
+      pictureUrl: "https://example.com/somchai.jpg",
+    });
+
+    const event: any = {
+      type: "memberJoined",
+      replyToken: "reply_member_joined_1",
+      source: { type: "group", groupId: "C_GROUP_001" },
+      joined: {
+        members: [{ type: "user", userId: "U_NEWBIE_1" }],
+      },
+    };
+
+    const results = await router.handleEvents([event]);
+    expect(results[0].success).toBe(true);
+    expect(results[0].event).toBe("memberJoined");
+    expect(results[0].joinedCount).toBe(1);
+    expect(results[0].memberNames).toContain("สมชาย ใจดี");
+
+    expect(mockLineClient.getGroupMemberProfile).toHaveBeenCalledWith(
+      "C_GROUP_001",
+      "U_NEWBIE_1"
+    );
+    expect(mockLineClient.replyMessage).toHaveBeenCalledTimes(1);
+
+    const [replyToken, messages] = mockLineClient.replyMessage.mock.calls[0];
+    expect(replyToken).toBe("reply_member_joined_1");
+    expect(messages[0].type).toBe("flex");
+    expect(messages[0].altText).toContain("สมชาย ใจดี");
+    expect(messages[0].altText).toContain("คู่มือเบื้องต้น & ยืนยันบัญชี");
+
+    const bubble = messages[0].contents;
+    expect(bubble.header.backgroundColor).toBe("#087963");
+    expect(bubble.header.contents[0].contents[0].text).toBe("🎉 ยินดีต้อนรับสมาชิกใหม่!");
+
+    // Button to open Mini App and verify account
+    const button = bubble.footer.contents[0];
+    expect(button.action.label).toBe("🚀 เปิด Mini App ยืนยันบัญชี");
+    expect(button.action.uri).toContain("action=verify");
+  });
+
   it("strictly rejects slip uploads from unregistered users and sends registration prompt", async () => {
     const event: any = {
       type: "message",

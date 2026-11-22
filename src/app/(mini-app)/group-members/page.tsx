@@ -65,43 +65,46 @@ export default function GroupMembersPage() {
     switch (role) {
       case "owner":
         return (
-          <Badge className="bg-amber-500 text-white text-[10px] gap-1">
+          <Badge className="bg-amber-500/15 text-warning border border-amber-500/25 text-[10px] gap-1 font-bold">
             <Crown className="w-2.5 h-2.5" /> หัวหน้ากลุ่ม
           </Badge>
         );
       case "treasurer":
         return (
-          <Badge className="bg-blue-600 text-white text-[10px] gap-1">
+          <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25 text-[10px] gap-1 font-bold">
             <Shield className="w-2.5 h-2.5" /> เหรัญญิก
           </Badge>
         );
       case "member":
         return (
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-[10px] bg-brand-soft/50 text-text-secondary border-0 font-medium">
             สมาชิก
           </Badge>
         );
       default:
-        return <Badge variant="outline" className="text-[10px]">{role}</Badge>;
+        return (
+          <Badge variant="outline" className="text-[10px] border-border text-text-secondary font-medium">
+            {role}
+          </Badge>
+        );
     }
   };
 
   return (
     <div className="space-y-4">
-      <Card className="bg-white border-slate-200">
-        <CardHeader className="py-3 px-4 border-b border-slate-100 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-600" /> สมาชิกในกลุ่ม (
-            {members.length} คน)
+      <Card className="bg-surface border-border shadow-xs rounded-2xl overflow-hidden">
+        <CardHeader className="py-3.5 px-4 border-b border-border bg-brand-soft/20 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+            <Users className="w-4 h-4 text-brand" /> สมาชิกในกลุ่ม ({members.length} คน)
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 divide-y divide-slate-100">
+        <CardContent className="p-0 divide-y divide-border">
           {loading ? (
-            <div className="p-8 text-center text-xs text-slate-400">
+            <div className="p-8 text-center text-xs text-text-secondary">
               กำลังโหลดรายชื่อสมาชิก...
             </div>
           ) : members.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400">
+            <div className="p-8 text-center text-xs text-text-secondary">
               ยังไม่มีสมาชิกในระบบ
             </div>
           ) : (
@@ -112,30 +115,30 @@ export default function GroupMembersPage() {
               return (
                 <div
                   key={m.id}
-                  className="p-3.5 flex items-center justify-between hover:bg-slate-50/70"
+                  className="p-3.5 flex items-center justify-between hover:bg-brand-soft/20 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {prof.picture_url ? (
                       <img
                         src={prof.picture_url}
                         alt={prof.display_name}
-                        className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                        className="w-10 h-10 rounded-full object-cover border border-border"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm">
+                      <div className="w-10 h-10 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-sm">
                         {prof.display_name?.slice(0, 1) || "U"}
                       </div>
                     )}
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-900">
+                        <span className="text-xs font-bold text-text-primary">
                           {prof.display_name || "สมาชิก"}
                         </span>
                         {getRoleBadge(m.role)}
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-text-secondary mt-0.5">
                         สมทบแล้ว:{" "}
-                        <span className="font-semibold text-emerald-600">
+                        <span className="font-extrabold text-brand tabular-nums">
                           {formatCurrency(m.contributionTotal)}
                         </span>
                       </p>
@@ -147,7 +150,7 @@ export default function GroupMembersPage() {
                       <Button
                         size="sm"
                         variant="default"
-                        className="text-xs h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 gap-1"
+                        className="text-xs h-8 px-2.5 rounded-xl bg-brand hover:bg-brand-strong text-white gap-1 font-bold shadow-xs"
                         disabled={actionLoading === m.id}
                         onClick={() => handleApproveMember(m.id)}
                       >
@@ -155,8 +158,8 @@ export default function GroupMembersPage() {
                         {actionLoading === m.id ? "กำลังอนุมัติ..." : "อนุมัติ"}
                       </Button>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300 bg-emerald-50">
-                        <CheckCircle className="w-2.5 h-2.5 mr-1" /> สมาชิกพร้อมใช้งาน
+                      <Badge className="text-[10px] text-brand border border-brand/20 bg-brand-soft font-bold">
+                        <CheckCircle className="w-2.5 h-2.5 mr-1" /> พร้อมใช้งาน
                       </Badge>
                     )}
                   </div>

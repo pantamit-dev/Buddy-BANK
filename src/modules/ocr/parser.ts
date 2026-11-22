@@ -95,16 +95,43 @@ export function parseBankSlipText(rawText: string): OcrResult & {
 export function extractAmount(text: string): number | null {
   if (!text || typeof text !== "string") return null;
 
-  // Clean common OCR decimal misreadings (e.g. O or o instead of 0)
-  const normalized = text
+  // Clean common OCR decimal and digit misreadings of O or o (letter O instead of digit 0)
+  let normalized = text
     .replace(/(\d+)\.[Oo](\d)/g, "$1.0$2")
     .replace(/(\d+)\.(\d)[Oo]/g, "$1.$20")
-    .replace(/(\d+)\.[Oo]{2}/g, "$1.00");
+    .replace(/\.([Oo]{2})\b/g, ".00")
+    .replace(/\.([Oo])\b/g, ".0")
+    .replace(/\b[Oo]\.([0-9Oo]{2})\b/g, "0.$1")
+    .replace(/([0-9Oo]+(?:\.[0-9Oo]+)+)\s*(?:บาท|baht|thb)/gi, (match) =>
+      match.replace(/[Oo]/g, "0")
+    )
+    .replace(
+      /(?:จำนวนเงิน|ยอดเงิน|โอนเงิน|โอนจำนวน|ยอดโอน|จำนวน|ยอด|amount|total)\s*[:=]?\s*([0-9Oo,.]+)/gi,
+      (match, num) => match.replace(num, num.replace(/[Oo]/g, "0"))
+    );
+
+  // Fix stray OCR noise / spaces / dots in numbers (e.g. "4.5.00" -> "45.00", "1.500.00" -> "1500.00")
+  // In Thai banking, all slips end with 2 decimal digits for Satang (.XX).
+  // Any preceding dots are stray OCR noise or misread thousand separators.
+  normalized = normalized.replace(/\b(\d+(?:\.\d+)+)\b/g, (match) => {
+    const parts = match.split(".");
+    if (parts.length > 2) {
+      const last = parts[parts.length - 1];
+      if (last.length === 2) {
+        return parts.slice(0, -1).join("") + "." + last;
+      }
+    }
+    return match;
+  });
+
+  // Collapse spaces between digits inside currency amounts before decimals or before currency symbol
+  normalized = normalized.replace(/([0-9])\s+([0-9])(?=\s*(?:\.[0-9]{2})?\s*(?:บาท|baht|thb))/gi, "$1$2");
+  normalized = normalized.replace(/([0-9])\s*\.\s*([0-9]{2})\b/g, "$1.$2");
 
   const amountPatterns = [
-    /(?:จำนวนเงิน|ยอดเงิน|โอนเงิน|โอนจำนวน|ยอดโอน|จำนวน|ยอด|amount|total)\s*[:=]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)/gi,
-    /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)\s*(?:บาท|baht|thb)/gi,
-    /(?:baht|thb|฿)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)/gi,
+    /(?:จำนวนเงิน|ยอดเงิน|โอนเงิน|โอนจำนวน|ยอดโอน|จำนวน|ยอด|amount|total)\s*[:=]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/gi,
+    /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)\s*(?:บาท|baht|thb)/gi,
+    /(?:baht|thb|฿)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/gi,
   ];
 
   for (const regex of amountPatterns) {
@@ -120,7 +147,7 @@ export function extractAmount(text: string): number | null {
   }
 
   // Fallback: look for floating point pattern ending with .00 or currency format (with or without comma)
-  const genericMatches = Array.from(normalized.matchAll(/\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2})\b/g));
+  const genericMatches = Array.from(normalized.matchAll(/\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b/g));
   for (const match of genericMatches) {
     if (match && match[1]) {
       const parsed = parseFloat(match[1].replace(/,/g, ""));
@@ -309,8 +336,8 @@ export function extractBankReference(text: string): string | null {
     /(?:รหัส\s*อ้างอิง|เล[ขบยง]ที่\s*(?:รายการ|อ้างอิง)|เล[ขบยง]\s*(?:รายการ|อ้างอิง)|หมายเลข\s*(?:อ้างอิง|รายการ)|รหัส\s*(?:รายการ|ธุรกรรม)|เล[ขบยง]ที่|ref(?:\s*no\.?|\s*id)?|transaction\s*(?:id|no\.?)|trans\s*id|tx(?:id)?)[\s:=ะ.-]*(?:(?:สแกน|qr|ตรวจสอบสลิป|scan)[\s:=ะ.-]*)*([A-Za-z0-9_-]{6,35})/i,
     // 2. Bangkok Bank specific prefix: BBL followed by alphanumeric
     /\b(BBL[A-Za-z0-9]{10,25})\b/i,
-    // 3. KBank style transaction ID: starts with 01-09 + digits + alphanumeric
-    /\b(0[1-9]\d{8,14}[A-Za-z0-9]{4,12})\b/,
+    // 3. KBank style transaction ID: starts with 01-09 (or OCR misread O1-O9) + digits + alphanumeric
+    /\b([0O][1-9]\d{8,14}[A-Za-z0-9]{4,12})\b/,
     // 4. Standalone alphanumeric transaction ID containing both letters and digits (length 15-30)
     /\b(?=[A-Za-z0-9]{15,30}\b)(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]+\b/,
     // 5. Raw long bank numeric transaction ID (14-25 digits)
@@ -320,7 +347,11 @@ export function extractBankReference(text: string): string | null {
   for (const regex of refPatterns) {
     const match = text.match(regex);
     if (match && match[1]) {
-      return match[1].trim();
+      let ref = match[1].trim();
+      // Fix common OCR misreading: first character 'O' or 'o' followed by a digit is actually digit '0'
+      // e.g. O16321115001DPM07124 -> 016321115001DPM07124
+      ref = ref.replace(/^[Oo](\d)/, "0$1");
+      return ref;
     }
   }
 

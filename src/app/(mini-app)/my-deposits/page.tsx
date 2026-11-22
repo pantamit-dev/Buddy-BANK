@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { formatCurrency, formatThaiDate } from "@/lib/utils";
-import { Wallet, CheckCircle, Clock, AlertCircle, XCircle, UserCheck, CheckCircle2 } from "lucide-react";
+import { Wallet, CheckCircle, Clock, AlertCircle, XCircle, UserCheck } from "lucide-react";
 import { ProfileRegisterDialog } from "@/shared/components/profile-register-dialog";
 
 export default function MyDepositsPage() {
@@ -66,66 +66,70 @@ export default function MyDepositsPage() {
     switch (status) {
       case "verified":
         return (
-          <Badge variant="success" className="text-[10px]">
-            <CheckCircle className="w-3 h-3 mr-1" /> ยืนยันแล้ว
+          <Badge className="text-[10px] bg-brand-soft text-brand border border-brand/20 font-bold">
+            <CheckCircle className="w-3 h-3 mr-1 text-brand" /> ยืนยันแล้ว
           </Badge>
         );
       case "pending":
         return (
-          <Badge variant="warning" className="text-[10px]">
+          <Badge className="text-[10px] bg-amber-500/10 text-warning border border-amber-500/20 font-bold">
             <Clock className="w-3 h-3 mr-1" /> รอตรวจสอบ
           </Badge>
         );
       case "processing":
         return (
-          <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800">
+          <Badge className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold">
             <Clock className="w-3 h-3 mr-1 animate-spin" /> กำลังบันทึก
           </Badge>
         );
       case "rejected":
         return (
-          <Badge variant="destructive" className="text-[10px]">
+          <Badge className="text-[10px] bg-rose-500/10 text-negative border border-rose-500/20 font-bold">
             <XCircle className="w-3 h-3 mr-1" /> ปฏิเสธ
           </Badge>
         );
       default:
-        return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="text-[10px] border-border text-text-secondary">
+            {status}
+          </Badge>
+        );
     }
   };
 
   return (
     <div className="space-y-4">
       {/* Profile Confirmation Card */}
-      <Card className="bg-white border-slate-200 shadow-xs">
+      <Card className="bg-surface border-border shadow-xs">
         <CardContent className="p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {profile?.pictureUrl ? (
               <img
                 src={profile.pictureUrl}
                 alt={profile.displayName}
-                className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+                className="w-10 h-10 rounded-full border border-border object-cover"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
+              <div className="w-10 h-10 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">
                 {profile?.displayName?.slice(0, 1) || "U"}
               </div>
             )}
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-slate-800">
+                <span className="text-sm font-bold text-text-primary">
                   {profile?.displayName || "LINE User"}
                 </span>
                 {isRegistered ? (
-                  <Badge variant="success" className="text-[9px] px-1.5 py-0">
+                  <Badge className="text-[9.5px] px-2 py-0 bg-brand-soft text-brand border border-brand/20 font-bold">
                     ยืนยันแล้ว
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 border-amber-300 bg-amber-50">
+                  <Badge variant="outline" className="text-[9.5px] px-2 py-0 text-warning border-amber-400/40 bg-amber-500/10 font-bold">
                     รอยืนยัน
                   </Badge>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400 font-mono truncate max-w-[170px]">
+              <p className="text-[11px] text-text-secondary font-mono truncate max-w-[170px]">
                 {profile?.userId || "ID ไม่พร้อมใช้งาน"}
               </p>
             </div>
@@ -135,7 +139,7 @@ export default function MyDepositsPage() {
             size="sm"
             variant={isRegistered ? "outline" : "default"}
             onClick={() => setDialogOpen(true)}
-            className="text-xs h-8 px-3 font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="text-xs h-9 px-3 font-bold gap-1 rounded-xl bg-brand text-white hover:bg-brand-strong"
           >
             <UserCheck className="w-3.5 h-3.5" />
             <span>{isRegistered ? "แก้ไขโปรไฟล์" : "ลงทะเบียน"}</span>
@@ -144,16 +148,16 @@ export default function MyDepositsPage() {
       </Card>
 
       {/* Personal Summary Card */}
-      <Card className="bg-white border-slate-200 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-slate-500 font-medium flex items-center gap-1.5">
-            <Wallet className="w-4 h-4 text-emerald-600" /> ยอดโอนสะสมของฉัน
+      <Card className="bg-surface border-border shadow-xs">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="text-xs text-text-secondary font-bold flex items-center gap-1.5">
+            <Wallet className="w-4 h-4 text-brand" /> ยอดโอนสะสมของฉัน
           </CardTitle>
           <div className="mt-1">
-            <span className="text-2xl font-black text-slate-900">
+            <span className="text-2xl font-black text-text-primary tabular-nums">
               {formatCurrency(personalSummary.total)}
             </span>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-text-secondary mt-0.5 font-medium">
               ส่งสลิปทั้งหมด {personalSummary.count} รายการ
             </p>
           </div>
@@ -161,36 +165,47 @@ export default function MyDepositsPage() {
       </Card>
 
       {/* Historical List */}
-      <Card>
-        <CardHeader className="py-3 px-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-900">
+      <Card className="bg-surface border-border shadow-xs overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border bg-brand-soft/20">
+          <h3 className="text-sm font-extrabold text-text-primary tracking-tight">
             ประวัติการส่งสลิปของฉัน
           </h3>
         </CardHeader>
-        <CardContent className="p-0 divide-y divide-slate-100">
+        <CardContent className="p-0 divide-y divide-border">
           {loading ? (
-            <div className="p-8 text-center text-xs text-slate-400">
+            <div className="p-8 text-center text-xs text-text-secondary">
               กำลังโหลดรายการ...
             </div>
           ) : deposits.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400">
-              <AlertCircle className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+            <div className="p-8 text-center text-xs text-text-secondary">
+              <AlertCircle className="w-6 h-6 mx-auto mb-2 text-text-secondary/60" />
               ยังไม่พบประวัติการส่งสลิปของคุณ
             </div>
           ) : (
             deposits.map((dep) => (
-              <div key={dep.id} className="p-3.5 space-y-2 hover:bg-slate-50/60">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-slate-900">
-                    {formatCurrency(dep.detected_amount)}
-                  </span>
-                  {getStatusBadge(dep.status)}
+              <div
+                key={dep.id}
+                className="p-3.5 flex items-center justify-between hover:bg-brand-soft/20 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-brand-soft text-brand flex items-center justify-center shrink-0">
+                    <CheckCircle className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-extrabold text-text-primary tabular-nums">
+                        {formatCurrency(dep.detected_amount)}
+                      </span>
+                      {getStatusBadge(dep.status)}
+                    </div>
+                    <p className="text-[10px] text-text-secondary mt-0.5">
+                      {formatThaiDate(dep.created_at)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>{formatThaiDate(dep.created_at)}</span>
-                  <span className="font-mono text-[10px]">
-                    {dep.bank_reference || "ไม่มีรหัสอ้างอิง"}
-                  </span>
+
+                <div className="text-right text-[11px] text-text-secondary font-mono">
+                  {dep.bank_reference || "-"}
                 </div>
               </div>
             ))
@@ -198,7 +213,7 @@ export default function MyDepositsPage() {
         </CardContent>
       </Card>
 
-      {/* Profile Registration Dialog */}
+      {/* Dialog */}
       <ProfileRegisterDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );

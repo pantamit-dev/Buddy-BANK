@@ -50,7 +50,7 @@ export function ProfileRegisterDialog({
     if (res.success) {
       setFeedback({
         type: "success",
-        message: "ยืนยันและบันทึกข้อมูลโปรไฟล์ลง Supabase เรียบร้อยแล้ว!",
+        message: "ยืนยันและบันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว!",
       });
       setTimeout(() => {
         onOpenChange(false);
@@ -65,49 +65,49 @@ export function ProfileRegisterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm rounded-2xl p-6 bg-white shadow-xl">
+      <DialogContent className="max-w-sm rounded-3xl p-6 bg-surface border border-border shadow-2xl">
         <DialogHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2">
-            <UserCheck className="w-6 h-6" />
+          <div className="mx-auto w-12 h-12 bg-brand-soft text-brand rounded-2xl flex items-center justify-center mb-2">
+            <UserCheck className="w-6 h-6 stroke-[2.2]" />
           </div>
-          <DialogTitle className="text-lg font-bold text-slate-900">
+          <DialogTitle className="text-base font-extrabold text-text-primary tracking-tight">
             ยืนยันข้อมูลโปรไฟล์ LINE
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-500">
-            ตรวจสอบและลงทะเบียนข้อมูลเพื่อเชื่อมต่อกับระบบกองกลาง
+          <DialogDescription className="text-xs text-text-secondary">
+            ตรวจสอบและลงทะเบียนข้อมูลเพื่อเชื่อมต่อกับระบบ Bank Buddy
           </DialogDescription>
         </DialogHeader>
 
         {/* Profile Card Preview */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center gap-3">
+        <div className="bg-brand-soft/30 border border-brand/20 rounded-2xl p-4 flex flex-col items-center gap-3">
           {profile?.pictureUrl ? (
             <img
               src={profile.pictureUrl}
               alt={profile.displayName}
-              className="w-16 h-16 rounded-full border-2 border-emerald-500 object-cover shadow-xs"
+              className="w-16 h-16 rounded-full border-2 border-brand object-cover shadow-xs"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">
+            <div className="w-16 h-16 rounded-full bg-brand text-white flex items-center justify-center text-xl font-bold">
               {profile?.displayName?.slice(0, 1) || "U"}
             </div>
           )}
 
           <div className="text-center w-full">
             <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="text-sm font-bold text-slate-800">
+              <span className="text-sm font-bold text-text-primary">
                 {profile?.displayName || "LINE User"}
               </span>
               {isRegistered ? (
-                <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                <Badge className="text-[10px] px-2 py-0 bg-brand-soft text-brand border border-brand/20 font-bold">
                   ลงทะเบียนแล้ว
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-300 bg-amber-50">
+                <Badge variant="outline" className="text-[10px] px-2 py-0 text-warning border-amber-400/40 bg-amber-500/10 font-bold">
                   รอยืนยัน
                 </Badge>
               )}
             </div>
-            <p className="text-[11px] font-mono text-slate-400 truncate max-w-full px-2">
+            <p className="text-[11px] font-mono text-text-secondary truncate max-w-full px-2">
               ID: {profile?.userId || "กำลังโหลด..."}
             </p>
           </div>
@@ -115,30 +115,30 @@ export function ProfileRegisterDialog({
 
         {/* Custom Display Name Input */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-bold text-text-primary">
             ชื่อที่ต้องการแสดงในกลุ่ม:
           </label>
           <Input
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
             placeholder="ระบุชื่อของคุณ"
-            className="text-sm"
+            className="text-sm rounded-xl border-border bg-page text-text-primary focus-visible:ring-brand"
           />
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[10.5px] text-text-secondary">
             เพื่อนๆ ในกลุ่มจะเห็นชื่อนี้ในประวัติการส่งสลิปและยอดรวม
           </p>
         </div>
 
         {/* External Browser LINE Login Prompt */}
         {!isInClient && profile?.userId === "U_OWNER_001" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-[11px] text-amber-800 flex-1">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+            <div className="text-[11px] text-text-secondary flex-1">
               <span>คุณกำลังเปิดผ่านเบราว์เซอร์ภายนอก ต้องการล็อกอินด้วย LINE บัญชีจริงหรือไม่?</span>
               <button
                 type="button"
                 onClick={login}
-                className="mt-1.5 flex items-center gap-1 text-emerald-700 font-bold hover:underline"
+                className="mt-1 flex items-center gap-1 text-brand font-bold hover:underline"
               >
                 <LogIn className="w-3.5 h-3.5" /> ล็อกอินด้วย LINE
               </button>
@@ -149,16 +149,16 @@ export function ProfileRegisterDialog({
         {/* Feedback Alert */}
         {feedback && (
           <div
-            className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+            className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
               feedback.type === "success"
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                : "bg-rose-50 text-rose-800 border border-rose-200"
+                ? "bg-brand-soft text-brand-strong border border-brand/20"
+                : "bg-rose-500/10 text-negative border border-rose-500/20"
             }`}
           >
             {feedback.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-brand shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-negative shrink-0" />
             )}
             <span>{feedback.message}</span>
           </div>
@@ -169,7 +169,7 @@ export function ProfileRegisterDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="flex-1 text-xs"
+            className="flex-1 text-xs rounded-xl border-border text-text-secondary hover:text-text-primary h-10"
             disabled={isRegistering}
           >
             ยกเลิก
@@ -177,7 +177,7 @@ export function ProfileRegisterDialog({
           <Button
             onClick={handleRegister}
             disabled={isRegistering || !customName.trim()}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm"
+            className="flex-1 bg-brand hover:bg-brand-strong text-white text-xs font-bold rounded-xl h-10 shadow-xs"
           >
             {isRegistering ? (
               "กำลังบันทึก..."

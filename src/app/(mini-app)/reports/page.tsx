@@ -86,30 +86,30 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4">
       {/* Header Card */}
-      <Card className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white border-0 shadow-lg">
-        <CardHeader className="pb-2">
+      <Card className="bg-gradient-to-br from-[#087963] to-[#06483F] dark:from-[#063B32] dark:to-[#075C4D] text-white border-0 shadow-md rounded-2xl p-4">
+        <CardHeader className="p-0 pb-3">
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-indigo-300 border-indigo-400/30 bg-indigo-500/10 text-xs">
-              <BarChart3 className="w-3.5 h-3.5 mr-1" /> รายงานการเงินและสถิติ
+            <Badge className="bg-white/15 text-white border-white/20 text-[10px] font-bold">
+              <BarChart3 className="w-3.5 h-3.5 mr-1" /> รายงานการเงิน & AI
             </Badge>
-            <span className="text-xs text-slate-300 flex items-center gap-1">
+            <span className="text-xs text-emerald-100 flex items-center gap-1 font-medium">
               <Calendar className="w-3.5 h-3.5" /> ประจำเดือนนี้
             </span>
           </div>
-          <CardTitle className="text-xl text-white font-bold mt-1">
+          <CardTitle className="text-lg text-white font-extrabold mt-2 tracking-tight">
             รายงานและประวัติเดินบัญชี
           </CardTitle>
-          <p className="text-xs text-slate-300">
-            สร้างและดาวน์โหลดไฟล์รายงาน Excel (.xlsx) และตรวจสอบสรุปวิเคราะห์ทางการเงิน
+          <p className="text-xs text-emerald-100/90 leading-relaxed">
+            สร้างและดาวน์โหลดไฟล์รายงาน Excel (.xlsx) และตรวจสอบบทวิเคราะห์การเงินอัจฉริยะ
           </p>
         </CardHeader>
-        <CardContent className="pt-2">
+        <CardContent className="p-0 pt-1">
           <Button
             onClick={handleGenerateReport}
             disabled={generating}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-white text-brand-strong hover:bg-white/90 font-extrabold rounded-xl h-11 text-xs shadow-xs flex items-center justify-center gap-2"
           >
-            <FileSpreadsheet className="w-4 h-4" />
+            <FileSpreadsheet className="w-4 h-4 text-brand" />
             {generating ? "กำลังสร้างรายงาน Excel..." : "สร้างรายงาน Excel (ExcelJS)"}
           </Button>
         </CardContent>
@@ -117,29 +117,29 @@ export default function ReportsPage() {
 
       {/* Financial Stats Breakdown */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-slate-200">
+        <Card className="bg-surface border-border shadow-xs rounded-2xl">
           <CardContent className="p-3.5 flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-emerald-100 text-emerald-700">
-              <TrendingUp className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-brand-soft text-brand flex items-center justify-center shrink-0">
+              <TrendingUp className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">ยอดเงินเข้า (ฝาก)</p>
-              <p className="text-base font-bold text-slate-900">
-                {formatCurrency(stats.totalCredits)}
+              <p className="text-[11px] text-text-secondary font-medium">ยอดเงินเข้า (ฝาก)</p>
+              <p className="text-sm font-extrabold text-positive tabular-nums">
+                +{formatCurrency(stats.totalCredits)}
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200">
+        <Card className="bg-surface border-border shadow-xs rounded-2xl">
           <CardContent className="p-3.5 flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-red-100 text-red-700">
-              <TrendingDown className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-rose-500/15 text-negative flex items-center justify-center shrink-0">
+              <TrendingDown className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">ยอดเงินออก (เบิก)</p>
-              <p className="text-base font-bold text-slate-900">
-                {formatCurrency(stats.totalDebits)}
+              <p className="text-[11px] text-text-secondary font-medium">ยอดเงินออก (เบิก)</p>
+              <p className="text-sm font-extrabold text-negative tabular-nums">
+                −{formatCurrency(stats.totalDebits)}
               </p>
             </div>
           </CardContent>
@@ -148,44 +148,44 @@ export default function ReportsPage() {
 
       {/* AI Copilot Analytical Insights */}
       {copilotInsight && (
-        <Card className="border-indigo-100 bg-indigo-50/50">
-          <CardHeader className="pb-1 pt-3 px-3.5">
-            <div className="flex items-center gap-1.5 text-indigo-700 text-xs font-semibold">
-              <Sparkles className="w-4 h-4 text-indigo-600" />
+        <Card className="border-brand/20 bg-brand-soft/40 shadow-xs rounded-2xl overflow-hidden">
+          <CardHeader className="pb-1 pt-3.5 px-4">
+            <div className="flex items-center gap-2 text-brand text-xs font-extrabold">
+              <Sparkles className="w-4 h-4 stroke-[2.2]" />
               <span>บทวิเคราะห์อัจฉริยะ (AI Copilot Insights)</span>
             </div>
           </CardHeader>
-          <CardContent className="px-3.5 pb-3.5 pt-1 text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+          <CardContent className="px-4 pb-4 pt-1.5 text-xs text-text-primary leading-relaxed whitespace-pre-line font-medium">
             {copilotInsight}
           </CardContent>
         </Card>
       )}
 
       {/* Export History */}
-      <Card className="border-slate-200">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> รายการดาวน์โหลดที่พร้อมใช้งาน
+      <Card className="bg-surface border-border shadow-xs rounded-2xl overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border bg-brand-soft/20">
+          <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-brand" /> รายการดาวน์โหลดที่พร้อมใช้งาน
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="p-3 space-y-2">
           {reports.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-4">
+            <p className="text-xs text-text-secondary text-center py-4">
               ยังไม่มีรายงานที่สร้างในรอบนี้ คลิกปุ่มด้านบนเพื่อสร้างไฟล์ Excel
             </p>
           ) : (
             reports.map((r, i) => (
               <div
                 key={r.reportId || i}
-                className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100"
+                className="flex items-center justify-between p-3 bg-brand-soft/30 rounded-xl border border-brand/15"
               >
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center gap-2.5">
+                  <FileSpreadsheet className="w-4 h-4 text-brand shrink-0" />
                   <div>
-                    <p className="text-xs font-medium text-slate-800">
+                    <p className="text-xs font-bold text-text-primary">
                       รายงานประจำเดือน {r.period}
                     </p>
-                    <span className="text-[10px] text-slate-500">รูปแบบ Excel (.xlsx)</span>
+                    <span className="text-[10px] text-text-secondary font-medium">รูปแบบ Excel (.xlsx)</span>
                   </div>
                 </div>
                 {r.signedUrl && (
@@ -193,7 +193,7 @@ export default function ReportsPage() {
                     href={r.signedUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:text-emerald-600 text-xs flex items-center gap-1 shadow-xs"
+                    className="px-2.5 py-1.5 rounded-xl bg-surface border border-border text-brand hover:bg-brand-soft font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>ดาวน์โหลด</span>
