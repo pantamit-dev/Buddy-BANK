@@ -237,6 +237,62 @@ export class MembershipService {
   }
 
   /**
+   * Updates a member's role (Owner only)
+   * Supported roles: 'owner' | 'treasurer' | 'member' | 'viewer'
+   */
+  async updateMemberRole(params: {
+    memberId: string;
+    role: MemberRole;
+    actorLineUserId: string;
+  }): Promise<{ success: boolean; member: any }> {
+    const { memberId, role, actorLineUserId } = params;
+
+    // 1. Get target member
+    const { data: targetMember } = await this.supabase
+      .from("group_members")
+      .select("id, group_id, user_id, role")
+      .eq("id", memberId)
+      .single();
+
+    if (!targetMember) throw new Error("Target member not found");
+
+    // 2. Verify actor is owner
+    const actor = await this.getMemberByLineUserId(
+      targetMember.group_id,
+      actorLineUserId
+    );
+    if (!actor || !canManageMembers(actor.role)) {
+      throw new Error("Unauthorized: Only group owner can change member roles");
+    }
+
+    // 3. Update member role
+    const { data: updatedMember, error: updateErr } = await this.supabase
+      .from("group_members")
+      .update({ role })
+      .eq("id", memberId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // 4. Record audit log
+    await this.supabase.from("audit_logs").insert({
+      group_id: targetMember.group_id,
+      actor_id: actor.userId,
+      action: "UPDATE_MEMBER_ROLE",
+      entity_name: "group_members",
+      entity_id: memberId,
+      payload: {
+        previousRole: targetMember.role,
+        newRole: role,
+        changedBy: actor.displayName,
+      },
+    });
+
+    return { success: true, member: updatedMember };
+  }
+
+  /**
    * Suspends a member (Owner only)
    */
   async suspendMember(params: {

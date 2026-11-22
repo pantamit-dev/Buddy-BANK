@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import { Users, Crown, Shield, UserCheck, CheckCircle } from "lucide-react";
+import { Users, Crown, Shield, UserCheck, CheckCircle, Eye, Loader2 } from "lucide-react";
+import type { MemberRole } from "@/shared/types/database.types";
 
 export default function GroupMembersPage() {
-  const { profile, groupId } = useLiff();
+  const { profile, groupId, isOwner } = useLiff();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -34,6 +35,34 @@ export default function GroupMembersPage() {
       fetchMembers();
     }
   }, [groupId]);
+
+  const handleUpdateRole = async (memberId: string, newRole: MemberRole) => {
+    try {
+      setActionLoading(memberId);
+      const res = await fetch("/api/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          role: newRole,
+          actorLineUserId: profile?.userId || "U_OWNER_001",
+        }),
+      });
+
+      if (res.ok) {
+        setMembers((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
+        );
+      } else {
+        const err = await res.json();
+        alert(err.error || "เกิดข้อผิดพลาดในการเปลี่ยนบทบาท");
+      }
+    } catch (e) {
+      alert("ไม่สามารถเปลี่ยนบทบาทได้: " + String(e));
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleApproveMember = async (memberId: string) => {
     try {
@@ -65,7 +94,7 @@ export default function GroupMembersPage() {
     switch (role) {
       case "owner":
         return (
-          <Badge className="bg-amber-500/15 text-warning border border-amber-500/25 text-[10px] gap-1 font-bold">
+          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[10px] gap-1 font-bold">
             <Crown className="w-2.5 h-2.5" /> หัวหน้ากลุ่ม
           </Badge>
         );
@@ -73,6 +102,12 @@ export default function GroupMembersPage() {
         return (
           <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25 text-[10px] gap-1 font-bold">
             <Shield className="w-2.5 h-2.5" /> เหรัญญิก
+          </Badge>
+        );
+      case "viewer":
+        return (
+          <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 text-[10px] gap-1 font-bold">
+            <Eye className="w-2.5 h-2.5" /> ผู้สังเกตการณ์
           </Badge>
         );
       case "member":
@@ -145,7 +180,7 @@ export default function GroupMembersPage() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="flex items-center gap-2">
                     {isPending ? (
                       <Button
                         size="sm"
@@ -154,13 +189,31 @@ export default function GroupMembersPage() {
                         disabled={actionLoading === m.id}
                         onClick={() => handleApproveMember(m.id)}
                       >
-                        <UserCheck className="w-3.5 h-3.5" />
+                        {actionLoading === m.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <UserCheck className="w-3.5 h-3.5" />
+                        )}
                         {actionLoading === m.id ? "กำลังอนุมัติ..." : "อนุมัติ"}
                       </Button>
                     ) : (
                       <Badge className="text-[10px] text-brand border border-brand/20 bg-brand-soft font-bold">
                         <CheckCircle className="w-2.5 h-2.5 mr-1" /> พร้อมใช้งาน
                       </Badge>
+                    )}
+
+                    {isOwner && (
+                      <select
+                        value={m.role}
+                        disabled={actionLoading === m.id}
+                        onChange={(e) => handleUpdateRole(m.id, e.target.value as MemberRole)}
+                        className="text-xs h-8 px-2 py-1 rounded-xl border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-brand font-medium cursor-pointer"
+                      >
+                        <option value="owner">👑 Owner</option>
+                        <option value="treasurer">🛡️ เหรัญญิก</option>
+                        <option value="member">👤 สมาชิก</option>
+                        <option value="viewer">👁️ ผู้ชม</option>
+                      </select>
                     )}
                   </div>
                 </div>

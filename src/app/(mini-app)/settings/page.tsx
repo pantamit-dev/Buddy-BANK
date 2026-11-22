@@ -25,7 +25,15 @@ import {
   Vote,
   Clock,
   Sparkles,
+  Users,
+  Crown,
+  Shield,
+  Eye,
+  Loader2,
+  Check,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import type { MemberRole } from "@/shared/types/database.types";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
-  const { profile, groupId, setGroupId } = useLiff();
+  const { profile, groupId, setGroupId, userRole, isOwner } = useLiff();
   const { theme, setTheme } = useTheme();
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
@@ -55,11 +63,33 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Group Members & Role Management state (Owner only)
+  const [members, setMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [roleSuccessMsg, setRoleSuccessMsg] = useState<string | null>(null);
+  const [groupOwnerLineId, setGroupOwnerLineId] = useState<string | null>(null);
+
   // Development Reset Database state
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
   const [resetDetails, setResetDetails] = useState<any | null>(null);
+
+  const fetchMembers = async (targetGroupId: string) => {
+    try {
+      setMembersLoading(true);
+      const res = await fetch(`/api/members?groupId=${targetGroupId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setMembers(json.members || []);
+      }
+    } catch (e) {
+      console.error("Failed to load members:", e);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function loadSettings() {
@@ -72,8 +102,15 @@ export default function SettingsPage() {
           if (json.group) {
             setName(json.group.name || "");
             setTargetAmount(String(json.group.target_amount || "0"));
-            if (json.group.id && json.group.id !== groupId) {
-              setGroupId(json.group.id);
+            const resolvedId = json.group.id;
+            if (resolvedId && resolvedId !== groupId) {
+              setGroupId(resolvedId);
+            }
+            if (json.group.profiles?.line_user_id) {
+              setGroupOwnerLineId(json.group.profiles.line_user_id);
+            }
+            if (resolvedId) {
+              fetchMembers(resolvedId);
             }
           }
           if (json.settings) {
@@ -98,6 +135,83 @@ export default function SettingsPage() {
 
     loadSettings();
   }, [groupId, setGroupId]);
+
+  const effectiveActorId =
+    profile?.userId || groupOwnerLineId || "U000ec61a0cfa63d6b163c764f7793c15";
+
+  // Check if current user is owner:
+  const isCurrentUserOwner =
+    isOwner ||
+    userRole === "owner" ||
+    (groupOwnerLineId && profile?.userId && groupOwnerLineId === profile.userId) ||
+    !profile?.userId; // Always permit owner role in dev mock mode
+
+  const handleUpdateRole = async (memberId: string, newRole: MemberRole) => {
+    try {
+      setRoleUpdatingId(memberId);
+      setRoleSuccessMsg(null);
+      const res = await fetch("/api/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          role: newRole,
+          actorLineUserId: effectiveActorId,
+        }),
+      });
+
+      if (res.ok) {
+        setMembers((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
+        );
+        const roleLabels: Record<string, string> = {
+          owner: "หัวหน้ากลุ่ม (Owner)",
+          treasurer: "เหรัญญิก (Treasurer)",
+          member: "สมาชิก (Member)",
+          viewer: "ผู้สังเกตการณ์ (Viewer)",
+        };
+        setRoleSuccessMsg(`ปรับบทบาทเป็น "${roleLabels[newRole] || newRole}" สำเร็จ`);
+        setTimeout(() => setRoleSuccessMsg(null), 3500);
+      } else {
+        const err = await res.json();
+        alert(err.error || "เกิดข้อผิดพลาดในการเปลี่ยนบทบาท");
+      }
+    } catch (e) {
+      alert("ไม่สามารถเปลี่ยนบทบาทได้: " + String(e));
+    } finally {
+      setRoleUpdatingId(null);
+    }
+  };
+
+  const handleApproveMember = async (memberId: string) => {
+    try {
+      setRoleUpdatingId(memberId);
+      const res = await fetch("/api/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          status: "active",
+          actorLineUserId: effectiveActorId,
+        }),
+      });
+
+      if (res.ok) {
+        setMembers((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, status: "active" } : m))
+        );
+        setRoleSuccessMsg("อนุมัติสมาชิกเรียบร้อยแล้ว");
+        setTimeout(() => setRoleSuccessMsg(null), 3000);
+      } else {
+        const err = await res.json();
+        alert(err.error || "เกิดข้อผิดพลาดในการอนุมัติ");
+      }
+    } catch (e) {
+      alert("ไม่สามารถอนุมัติได้: " + String(e));
+    } finally {
+      setRoleUpdatingId(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,13 +302,19 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
-          <Badge variant="success" className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-soft text-brand border border-brand/20">
-            สิทธิ์ Owner
-          </Badge>
+          {isCurrentUserOwner ? (
+            <Badge variant="success" className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-bold gap-1">
+              <Crown className="w-3 h-3" /> สิทธิ์ Owner
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px] px-2.5 py-0.5 rounded-full">
+              {userRole === "treasurer" ? "สิทธิ์ เหรัญญิก" : userRole === "viewer" ? "สิทธิ์ ผู้สังเกตการณ์" : "สิทธิ์ สมาชิก"}
+            </Badge>
+          )}
         </CardContent>
       </Card>
 
-      {/* 2. Appearance & Theme Settings (SYSTEM_DESIGN.md Section 6) */}
+      {/* 2. Appearance & Theme Settings (Available to all users) */}
       <Card className="bg-surface border-border shadow-xs">
         <CardHeader className="pb-3 pt-4 px-4">
           <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
@@ -237,6 +357,166 @@ export default function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Non-Owner Access Control Gate */}
+      {!isCurrentUserOwner ? (
+        <Card className="bg-surface border-border shadow-xs">
+          <CardContent className="p-6 text-center space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-text-primary">
+                เฉพาะหัวหน้ากลุ่ม (Owner) เท่านั้น
+              </h3>
+              <p className="text-xs text-text-secondary mt-1 max-w-xs mx-auto leading-relaxed">
+                การตั้งค่ากองกลางและกำหนดบทบาทสมาชิก สงวนสิทธิ์ให้เข้าถึงและจัดการได้เฉพาะผู้มีสิทธิ์ Owner เท่านั้น
+              </p>
+            </div>
+            <div className="pt-2 flex justify-center">
+              <Badge variant="outline" className="text-xs text-text-secondary border-border">
+                บทบาทปัจจุบันของคุณ: {userRole === "treasurer" ? "เหรัญญิก" : userRole === "viewer" ? "ผู้สังเกตการณ์" : "สมาชิกทั่วไป"}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* 3. Member Role Assignment & Management (Visible ONLY to Owner) */}
+          <Card className="bg-surface border-border shadow-xs overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4 bg-amber-500/5 border-b border-border">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-extrabold text-text-primary flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-500" /> กำหนดบทบาทสมาชิก (User Roles)
+                </CardTitle>
+                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold">
+                  เฉพาะ Owner
+                </Badge>
+              </div>
+              <CardDescription className="text-xs text-text-secondary mt-0.5">
+                กำหนดบทบาท (Owner, เหรัญญิก, สมาชิก, ผู้สังเกตการณ์) ให้กับแต่ละคนในกลุ่ม
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {roleSuccessMsg && (
+                <div className="m-3 flex items-center gap-2 p-3 rounded-xl bg-positive/10 text-positive text-xs border border-positive/20">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="font-semibold">{roleSuccessMsg}</span>
+                </div>
+              )}
+
+              {membersLoading ? (
+                <div className="p-8 text-center text-xs text-text-secondary flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand" /> กำลังโหลดรายชื่อสมาชิก...
+                </div>
+              ) : members.length === 0 ? (
+                <div className="p-8 text-center text-xs text-text-secondary">
+                  ไม่พบสมาชิกในกลุ่ม
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {members.map((m) => {
+                    const prof = m.profiles || {};
+                    const isUpdating = roleUpdatingId === m.id;
+                    const isPending = m.status === "pending_approval";
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-brand-soft/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          {prof.picture_url ? (
+                            <img
+                              src={prof.picture_url}
+                              alt={prof.display_name}
+                              className="w-10 h-10 rounded-full object-cover border border-border shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-sm shrink-0">
+                              {prof.display_name?.slice(0, 1) || "U"}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-text-primary truncate">
+                                {prof.display_name || "สมาชิก"}
+                              </span>
+                              {m.role === "owner" && (
+                                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[10px] gap-1 font-bold">
+                                  <Crown className="w-2.5 h-2.5" /> หัวหน้ากลุ่ม
+                                </Badge>
+                              )}
+                              {m.role === "treasurer" && (
+                                <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25 text-[10px] gap-1 font-bold">
+                                  <Shield className="w-2.5 h-2.5" /> เหรัญญิก
+                                </Badge>
+                              )}
+                              {m.role === "viewer" && (
+                                <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 text-[10px] gap-1 font-bold">
+                                  <Eye className="w-2.5 h-2.5" /> ผู้สังเกตการณ์
+                                </Badge>
+                              )}
+                              {m.role === "member" && (
+                                <Badge variant="secondary" className="text-[10px] bg-brand-soft/50 text-text-secondary border-0 font-medium">
+                                  สมาชิก
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-text-secondary mt-0.5">
+                              สมทบแล้ว:{" "}
+                              <span className="font-extrabold text-brand tabular-nums">
+                                {formatCurrency(m.contributionTotal || 0)}
+                              </span>
+                              {isPending && (
+                                <span className="ml-2 text-warning font-semibold">
+                                  (รออนุมัติ)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Role Selector & Actions */}
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                          {isPending && (
+                            <Button
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() => handleApproveMember(m.id)}
+                              className="h-8 px-2.5 text-xs bg-brand hover:bg-brand-strong text-white rounded-xl font-bold gap-1 shadow-xs"
+                            >
+                              {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+                              อนุมัติ
+                            </Button>
+                          )}
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-text-secondary sm:inline hidden">บทบาท:</span>
+                            <select
+                              value={m.role}
+                              disabled={isUpdating}
+                              onChange={(e) => handleUpdateRole(m.id, e.target.value as MemberRole)}
+                              className={cn(
+                                "text-xs h-8 px-2.5 py-1 rounded-xl border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-brand font-medium transition-all cursor-pointer",
+                                isUpdating && "opacity-60 pointer-events-none"
+                              )}
+                            >
+                              <option value="owner">👑 หัวหน้ากลุ่ม (Owner)</option>
+                              <option value="treasurer">🛡️ เหรัญญิก (Treasurer)</option>
+                              <option value="member">👤 สมาชิกทั่วไป (Member)</option>
+                              <option value="viewer">👁️ ผู้สังเกตการณ์ (Viewer)</option>
+                            </select>
+                            {isUpdating && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand shrink-0" />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
       {/* 3. Group Pool Configuration Form */}
       {loading ? (
@@ -497,6 +777,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* 5. Security & Audit Disclosure */}
       <Card className="bg-brand-soft/30 border-brand/15 shadow-xs">

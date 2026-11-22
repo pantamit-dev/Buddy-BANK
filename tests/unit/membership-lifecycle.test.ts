@@ -284,4 +284,45 @@ describe("Advanced Membership Management (Suspension & Temp Admin) Unit Tests", 
       ).rejects.toThrow(/Unauthorized/);
     });
   });
+
+  describe("Member Role Assignment & Updates (Owner only)", () => {
+    it("allows owner to promote a member to treasurer", async () => {
+      const result = await membershipService.updateMemberRole({
+        memberId: "gm-member",
+        role: "treasurer",
+        actorLineUserId: "U_OWNER",
+      });
+
+      expect(result.success).toBe(true);
+      const memberInDb = mockDatabase.group_members.find((m) => m.id === "gm-member");
+      expect(memberInDb.role).toBe("treasurer");
+
+      // Verify audit log
+      const audit = mockDatabase.audit_logs.find((a) => a.action === "UPDATE_MEMBER_ROLE");
+      expect(audit).toBeDefined();
+      expect(audit.payload.newRole).toBe("treasurer");
+    });
+
+    it("allows owner to change a member role to viewer", async () => {
+      const result = await membershipService.updateMemberRole({
+        memberId: "gm-member",
+        role: "viewer",
+        actorLineUserId: "U_OWNER",
+      });
+
+      expect(result.success).toBe(true);
+      const memberInDb = mockDatabase.group_members.find((m) => m.id === "gm-member");
+      expect(memberInDb.role).toBe("viewer");
+    });
+
+    it("strictly blocks non-owner from changing member roles", async () => {
+      await expect(
+        membershipService.updateMemberRole({
+          memberId: "gm-member",
+          role: "treasurer",
+          actorLineUserId: "U_MEMBER",
+        })
+      ).rejects.toThrow(/Unauthorized/);
+    });
+  });
 });

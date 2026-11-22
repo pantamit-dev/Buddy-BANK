@@ -831,14 +831,56 @@ export function createGroupBalanceFlexMessage(params: {
         ? {
             type: "box",
             layout: "vertical",
+            spacing: "xs",
             contents: [
               {
                 type: "button",
-                style: "secondary",
+                style: "primary",
+                color: "#087963",
                 height: "sm",
                 action: {
+                  type: "message",
+                  label: "👥 ดูรายชื่อสมาชิก & ยอดสมทบ",
+                  text: "#รายชื่อ",
+                },
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                spacing: "xs",
+                contents: [
+                  {
+                    type: "button",
+                    style: "secondary",
+                    height: "sm",
+                    flex: 1,
+                    action: {
+                      type: "message",
+                      label: "👤 ยอดฉัน",
+                      text: "#ยอดฉัน",
+                    },
+                  },
+                  {
+                    type: "button",
+                    style: "secondary",
+                    height: "sm",
+                    flex: 1,
+                    action: {
+                      type: "message",
+                      label: "💸 ขอ QR",
+                      text: "#qr",
+                    },
+                  },
+                ],
+              },
+              {
+                type: "button",
+                style: "link",
+                height: "sm",
+                color: "#087963",
+                action: {
                   type: "uri",
-                  label: "🔍 ดูรายละเอียดใน Mini App",
+                  label: "🔍 ดูรายละเอียดทั้งหมดใน Mini App",
                   uri: liffUrl,
                 },
               },
@@ -857,49 +899,64 @@ export function createPersonalBalanceFlexMessage(params: {
   personalTotal: number;
   groupTotal: number;
   percentageOfPool: number;
+  role?: string;
+  liffUrl?: string;
 }): messagingApi.FlexMessage {
-  const { memberName, personalTotal, groupTotal, percentageOfPool } = params;
+  const { memberName, personalTotal, groupTotal, percentageOfPool, role, liffUrl } = params;
+
+  let roleText = "👤 สมาชิกทั่วไป";
+  if (role === "owner") roleText = "👑 หัวหน้ากลุ่ม (Owner)";
+  else if (role === "treasurer") roleText = "🛡️ เหรัญญิก (Treasurer)";
+  else if (role === "viewer") roleText = "👁️ ผู้สังเกตการณ์";
 
   return {
     type: "flex",
-    altText: `ยอดสมทบของคุณ: ${formatCurrency(personalTotal)}`,
+    altText: `ยอดสมทบของคุณ: ${formatCurrency(personalTotal)} (${percentageOfPool.toFixed(1)}%)`,
     contents: {
       type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#087963",
+        paddingAll: "15px",
+        contents: [
+          {
+            type: "text",
+            text: "👤 ยอดเงินสะสมส่วนตัว",
+            weight: "bold",
+            color: "#ffffff",
+            size: "md",
+          },
+          {
+            type: "text",
+            text: `${memberName} • ${roleText}`,
+            color: "#E5F4EE",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
       body: {
         type: "box",
         layout: "vertical",
         spacing: "md",
         contents: [
           {
-            type: "text",
-            text: "👤 ยอดสมทบของคุณ",
-            weight: "bold",
-            color: "#0f172a",
-            size: "md",
-          },
-          {
-            type: "text",
-            text: memberName,
-            size: "xs",
-            color: "#64748b",
-          },
-          {
-            type: "separator",
-          },
-          {
             type: "box",
-            layout: "horizontal",
+            layout: "vertical",
             contents: [
-              { type: "text", text: "ที่คุณโอนแล้ว:", size: "sm", color: "#64748b" },
+              { type: "text", text: "ยอดที่คุณโอนสะสมเข้ากองกลางแล้ว", size: "xs", color: "#64748b" },
               {
                 type: "text",
                 text: formatCurrency(personalTotal),
-                size: "md",
+                size: "xl",
                 weight: "bold",
                 color: "#059669",
-                align: "end",
               },
             ],
+          },
+          {
+            type: "separator",
           },
           {
             type: "box",
@@ -910,8 +967,248 @@ export function createPersonalBalanceFlexMessage(params: {
                 type: "text",
                 text: `${percentageOfPool.toFixed(1)}% (จาก ${formatCurrency(groupTotal)})`,
                 size: "xs",
-                color: "#334155",
+                color: "#1e293b",
+                weight: "bold",
                 align: "end",
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "xs",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                color: "#087963",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "👥 ยอดเพื่อน",
+                  text: "#รายชื่อ",
+                },
+              },
+              {
+                type: "button",
+                style: "primary",
+                color: "#0f172a",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "💸 โอนเพิ่ม",
+                  text: "#โอนเงิน",
+                },
+              },
+            ],
+          },
+          ...(liffUrl
+            ? [
+                {
+                  type: "button" as const,
+                  style: "secondary" as const,
+                  height: "sm" as const,
+                  action: {
+                    type: "uri" as const,
+                    label: "📱 ประวัติสลิปของฉันใน Mini App",
+                    uri: `${liffUrl}/my-deposits`,
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * Creates Member List Flex Message for `#รายชื่อ` / `#สมาชิก`
+ */
+export function createMemberListFlexMessage(params: {
+  groupName: string;
+  members: Array<{
+    displayName: string;
+    role: string;
+    contributionTotal: number;
+    sharePercentage: number;
+    status: string;
+  }>;
+  totalBalance: number;
+  liffUrl?: string;
+}): messagingApi.FlexMessage {
+  const { groupName, members, totalBalance, liffUrl } = params;
+
+  const displayMembers = members.slice(0, 10);
+  const remainingCount = members.length - displayMembers.length;
+
+  const memberRows = displayMembers.map((m) => {
+    let roleIcon = "👤";
+    if (m.role === "owner") roleIcon = "👑";
+    else if (m.role === "treasurer") roleIcon = "🛡️";
+    else if (m.role === "viewer") roleIcon = "👁️";
+
+    const isPending = m.status === "pending_approval";
+
+    return {
+      type: "box" as const,
+      layout: "horizontal" as const,
+      alignItems: "center" as const,
+      spacing: "sm" as const,
+      paddingVertical: "4px" as const,
+      contents: [
+        {
+          type: "text" as const,
+          text: `${roleIcon} ${m.displayName}`,
+          size: "xs" as const,
+          weight: "bold" as const,
+          color: "#1e293b" as const,
+          flex: 4,
+          wrap: false,
+        },
+        {
+          type: "box" as const,
+          layout: "vertical" as const,
+          alignItems: "flex-end" as const,
+          flex: 3,
+          contents: [
+            {
+              type: "text" as const,
+              text: isPending ? "รออนุมัติ" : formatCurrency(m.contributionTotal),
+              size: "xs" as const,
+              weight: "bold" as const,
+              color: isPending ? "#d97706" : "#059669" as const,
+              align: "end" as const,
+            },
+            {
+              type: "text" as const,
+              text: isPending ? "pending" : `${m.sharePercentage.toFixed(1)}%`,
+              size: "xxs" as const,
+              color: "#64748b" as const,
+              align: "end" as const,
+            },
+          ],
+        },
+      ],
+    };
+  });
+
+  return {
+    type: "flex",
+    altText: `รายชื่อสมาชิกกองกลาง (${members.length} คน): ยอดรวม ${formatCurrency(totalBalance)}`,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#0f172a",
+        paddingAll: "15px",
+        contents: [
+          {
+            type: "text",
+            text: "👥 รายชื่อสมาชิก & ยอดสะสมรายบุคคล",
+            weight: "bold",
+            color: "#ffffff",
+            size: "md",
+          },
+          {
+            type: "text",
+            text: `${groupName} • สมาชิก ${members.length} คน • รวม ${formatCurrency(totalBalance)}`,
+            color: "#94a3b8",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              { type: "text", text: "สมาชิก", size: "xxs", color: "#64748b", weight: "bold", flex: 4 },
+              { type: "text", text: "ยอดสะสม / สัดส่วน", size: "xxs", color: "#64748b", weight: "bold", align: "end", flex: 3 },
+            ],
+          },
+          {
+            type: "separator",
+            margin: "xs",
+            color: "#e2e8f0",
+          },
+          ...memberRows,
+          ...(remainingCount > 0
+            ? [
+                {
+                  type: "text" as const,
+                  text: `...และสมาชิกอีก ${remainingCount} คน`,
+                  size: "xxs" as const,
+                  color: "#64748b" as const,
+                  align: "center" as const,
+                  margin: "xs" as const,
+                },
+              ]
+            : []),
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          ...(liffUrl
+            ? [
+                {
+                  type: "button" as const,
+                  style: "primary" as const,
+                  color: "#087963" as const,
+                  height: "sm" as const,
+                  action: {
+                    type: "uri" as const,
+                    label: "📱 จัดการสมาชิกใน Mini App",
+                    uri: `${liffUrl}/group-members`,
+                  },
+                },
+              ]
+            : []),
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "xs",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "👤 ยอดฉัน",
+                  text: "#ยอดฉัน",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "📊 ยอดรวม",
+                  text: "#ยอดรวม",
+                },
               },
             ],
           },
@@ -922,26 +1219,213 @@ export function createPersonalBalanceFlexMessage(params: {
 }
 
 /**
- * Creates Help Flex Message for `#ช่วยเหลือ`
+ * Creates Transaction History Flex Message for `#ประวัติ`
  */
-export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage {
+export function createTransactionHistoryFlexMessage(params: {
+  groupName: string;
+  transactions: Array<{
+    amount: number;
+    depositorName: string;
+    createdAt: string;
+  }>;
+  liffUrl?: string;
+}): messagingApi.FlexMessage {
+  const { groupName, transactions, liffUrl } = params;
+
+  const txRows =
+    transactions.length === 0
+      ? [
+          {
+            type: "text" as const,
+            text: "ยังไม่มีประวัติการโอนเงินที่บันทึกแล้ว",
+            size: "xs" as const,
+            color: "#64748b" as const,
+            align: "center" as const,
+          },
+        ]
+      : transactions.map((tx) => ({
+          type: "box" as const,
+          layout: "horizontal" as const,
+          alignItems: "center" as const,
+          spacing: "sm" as const,
+          paddingVertical: "4px" as const,
+          contents: [
+            {
+              type: "box" as const,
+              layout: "vertical" as const,
+              flex: 4,
+              contents: [
+                {
+                  type: "text" as const,
+                  text: tx.depositorName,
+                  size: "xs" as const,
+                  weight: "bold" as const,
+                  color: "#1e293b" as const,
+                },
+                {
+                  type: "text" as const,
+                  text: tx.createdAt,
+                  size: "xxs" as const,
+                  color: "#64748b" as const,
+                },
+              ],
+            },
+            {
+              type: "text" as const,
+              text: `+${formatCurrency(tx.amount)}`,
+              size: "xs" as const,
+              weight: "bold" as const,
+              color: "#059669" as const,
+              align: "end" as const,
+              flex: 3,
+            },
+          ],
+        }));
+
   return {
     type: "flex",
-    altText: "คำแนะนำการใช้งาน Money Pool",
+    altText: `ประวัติการโอนเงินล่าสุด - ${groupName}`,
     contents: {
       type: "bubble",
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#334155",
+        backgroundColor: "#1e293b",
         paddingAll: "15px",
         contents: [
           {
             type: "text",
-            text: "💡 คำแนะนำการใช้งาน Money Pool",
+            text: "📋 ประวัติการโอนเงินล่าสุด",
             weight: "bold",
             color: "#ffffff",
             size: "md",
+          },
+          {
+            type: "text",
+            text: groupName,
+            color: "#94a3b8",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          ...txRows,
+        ],
+      },
+      footer: liffUrl
+        ? {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "uri",
+                  label: "🔍 ดูประวัติทั้งหมดใน Mini App",
+                  uri: `${liffUrl}/review`,
+                },
+              },
+            ],
+          }
+        : undefined,
+    },
+  };
+}
+
+/**
+ * Common Quick Reply action buttons rendered as square/rounded chips at bottom of LINE chat
+ */
+export function getCommonQuickReply(): messagingApi.QuickReply {
+  return {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "📊 ยอดรวม",
+          text: "#ยอดรวม",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "👤 ยอดฉัน",
+          text: "#ยอดฉัน",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "👥 รายชื่อ",
+          text: "#รายชื่อ",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "📋 ประวัติ",
+          text: "#ประวัติ",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "💸 ขอ QR",
+          text: "#qr",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "❓ คำสั่งทั้งหมด",
+          text: "#คำสั่ง",
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Creates Help Flex Message for `#ช่วยเหลือ`
+ */
+export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage {
+  return {
+    type: "flex",
+    altText: "คำแนะนำการใช้งานและรายการคำสั่ง Bank Buddy",
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#087963",
+        paddingAll: "15px",
+        contents: [
+          {
+            type: "text",
+            text: "💡 คำสั่งใช้งานในแชท (Chat Commands)",
+            weight: "bold",
+            color: "#ffffff",
+            size: "md",
+          },
+          {
+            type: "text",
+            text: "พิมพ์คำสั่งด้านล่าง หรือกดปุ่มลัดด้านล่างหน้าจอได้ทันที",
+            color: "#E5F4EE",
+            size: "xs",
+            margin: "xs",
           },
         ],
       },
@@ -951,60 +1435,171 @@ export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage
         spacing: "sm",
         contents: [
           {
-            type: "text",
-            text: "1. โอนเงินเข้าบัญชีกองกลาง แล้วส่งรูปสลิปเข้ามาในกลุ่มนี้",
-            size: "xs",
-            wrap: true,
-            color: "#1e293b",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "📊 #ยอดรวม หรือ #สรุป",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "ตรวจสอบยอดเงินกองกลางปัจจุบัน และความคืบหน้าเป้าหมาย",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
           {
-            type: "text",
-            text: "2. ระบบจะอ่านสลิปและส่งการ์ดให้เหรัญญิก/เจ้าของกลุ่มกดอนุมัติ",
-            size: "xs",
-            wrap: true,
-            color: "#1e293b",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "👤 #ยอดฉัน หรือ #ยอดผม",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "ดูยอดเงินสะสมส่วนตัว สัดส่วนในกองกลาง และบทบาทของคุณ",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
           {
-            type: "text",
-            text: "3. พิมพ์คำสั่งเช็คยอดได้ตลอด 24 ชม.:",
-            size: "xs",
-            weight: "bold",
-            color: "#0f172a",
-            margin: "sm",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "👥 #รายชื่อ หรือ #สมาชิก",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "ดูรายชื่อสมาชิกทุกคน บทบาท และยอดเงินสมทบรายบุคคล",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
           {
-            type: "text",
-            text: "• #ยอดรวม หรือ #สรุป : ตรวจสอบยอดรวมและเป้าหมาย",
-            size: "xs",
-            color: "#475569",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "📋 #ประวัติ หรือ #สลิป",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "ดูรายการโอนเงิน 5 รายการล่าสุดที่ได้รับการอนุมัติแล้ว",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
           {
-            type: "text",
-            text: "• #ยอดฉัน : ดูยอดเงินสะสมส่วนตัว",
-            size: "xs",
-            color: "#475569",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "💸 #โอนเงิน [ยอด] หรือ #qr",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "สร้าง QR Code พร้อมเพย์ตามยอดที่ระบุ หรือขอเลขบัญชีกองกลาง",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
           {
-            type: "text",
-            text: "• #โอนเงิน [ยอด] หรือ #qr : ขอ QR Code พร้อมยอดโอน & เปิดแอปธนาคาร",
-            size: "xs",
-            color: "#475569",
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "❓ #คำสั่ง หรือ #ช่วยเหลือ",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "แสดงคู่มือและรายการคำสั่งทั้งหมด",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
           },
         ],
       },
       footer: {
         type: "box",
         layout: "vertical",
+        spacing: "xs",
         contents: [
           {
             type: "button",
             style: "primary",
-            color: "#059669",
+            color: "#087963",
+            height: "sm",
             action: {
               type: "uri",
-              label: "เปิดหน้าต่างระบบ Mini App",
+              label: "📱 เปิดหน้าต่างระบบ Mini App",
               uri: liffUrl,
             },
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "xs",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "📊 ยอดรวม",
+                  text: "#ยอดรวม",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                flex: 1,
+                action: {
+                  type: "message",
+                  label: "👥 รายชื่อ",
+                  text: "#รายชื่อ",
+                },
+              },
+            ],
           },
         ],
       },

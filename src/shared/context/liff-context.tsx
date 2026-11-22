@@ -15,6 +15,8 @@ export interface LiffContextType {
   setGroupId: (id: string) => void;
   isRegistered: boolean;
   isRegistering: boolean;
+  userRole: string | null;
+  isOwner: boolean;
   login: () => void;
   registerProfile: (customName?: string) => Promise<{ success: boolean; message?: string }>;
 }
@@ -28,6 +30,8 @@ const LiffContext = createContext<LiffContextType>({
   setGroupId: () => {},
   isRegistered: false,
   isRegistering: false,
+  userRole: null,
+  isOwner: false,
   login: () => {},
   registerProfile: async () => ({ success: false }),
 });
@@ -45,6 +49,25 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [groupId, setGroupId] = useState("");
   const [isRegistered, setIsRegistered] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Sync current user's role whenever groupId or profile changes
+  useEffect(() => {
+    if (!groupId || !profile?.userId) return;
+    fetch(`/api/members?groupId=${groupId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const current = (data?.members || []).find(
+          (m: any) => m.profiles?.line_user_id === profile.userId
+        );
+        if (current?.role) {
+          setUserRole(current.role);
+        }
+      })
+      .catch(() => {});
+  }, [groupId, profile?.userId]);
+
+  const isOwner = userRole === "owner";
 
   const login = useCallback(async () => {
     try {
@@ -259,6 +282,8 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         setGroupId,
         isRegistered,
         isRegistering,
+        userRole,
+        isOwner,
         login,
         registerProfile,
       }}

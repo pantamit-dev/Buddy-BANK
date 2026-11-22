@@ -1,10 +1,15 @@
 import { LedgerService } from "@/modules/ledger/service";
 import { MembershipService } from "@/modules/membership/service";
+import { calculateMemberContribution } from "@/modules/ledger/balance";
+import { formatThaiDate } from "@/lib/utils";
 import {
   createGroupBalanceFlexMessage,
   createPersonalBalanceFlexMessage,
+  createMemberListFlexMessage,
+  createTransactionHistoryFlexMessage,
   createHelpFlexMessage,
   createPromptPayFlexMessage,
+  getCommonQuickReply,
 } from "@/modules/line-webhook/flex-templates";
 import { createAdminClient } from "@/integrations/supabase/server";
 import { generatePromptPayPayload } from "@/lib/promptpay";
@@ -54,8 +59,10 @@ export class CommandHandler {
       return null;
     }
 
-    // 2. Command: #ยอดรวม / #สรุป (Parallelized summary with preloaded target amount)
-    if (command === "#ยอดรวม" || command === "#สรุป") {
+    let reply: messagingApi.FlexMessage | null = null;
+
+    // 2. Command: #ยอดรวม / #สรุป / #summary
+    if (command === "#ยอดรวม" || command === "#สรุป" || command === "#summary") {
       const targetAmount = Number(group.target_amount || 0);
       const [summary, membersCountRes] = await Promise.all([
         this.ledgerService.getGroupBalanceSummary(group.id, targetAmount),
@@ -66,7 +73,7 @@ export class CommandHandler {
           .eq("status", "active"),
       ]);
 
-      return createGroupBalanceFlexMessage({
+      reply = createGroupBalanceFlexMessage({
         groupName: group.name,
         totalBalance: summary.totalBalance,
         targetAmount: summary.targetAmount,
@@ -76,8 +83,8 @@ export class CommandHandler {
       });
     }
 
-    // 3. Command: #ยอดฉัน / #ยอดผม
-    if (command === "#ยอดฉัน" || command === "#ยอดผม") {
+    // 3. Command: #ยอดฉัน / #ยอดผม / #mybalance
+    else if (command === "#ยอดฉัน" || command === "#ยอดผม" || command === "#mybalance") {
       if (!lineUserId) {
         return null;
       }
@@ -88,7 +95,7 @@ export class CommandHandler {
       );
 
       if (!member || member.status !== "active") {
-        return {
+        reply = {
           type: "flex",
           altText: "คุณยังไม่ได้เป็นสมาชิกของกองกลางนี้",
           contents: {
@@ -123,10 +130,10 @@ export class CommandHandler {
                 {
                   type: "button",
                   style: "primary",
-                  color: "#059669",
+                  color: "#087963",
                   action: {
                     type: "uri",
-                    label: "📱 เปิดระบบ Mini App",
+                    label: "📱 เปิดระบบ Mini App ยืนยันบัญชี",
                     uri: liffUrl,
                   },
                 },
@@ -134,29 +141,100 @@ export class CommandHandler {
             },
           },
         };
+      } else {
+        const summary = await this.ledgerService.getGroupBalanceSummary(group.id);
+        const contribution = await this.ledgerService.getMemberContribution(
+          group.id,
+          member.memberId
+        );
+
+        reply = createPersonalBalanceFlexMessage({
+          memberName: member.displayName,
+          personalTotal: contribution.personalTotal,
+          groupTotal: summary.totalBalance,
+          percentageOfPool: contribution.personalSharePercentage,
+          role: member.role,
+          liffUrl,
+        });
       }
+    }
 
-      const summary = await this.ledgerService.getGroupBalanceSummary(group.id);
-      const contribution = await this.ledgerService.getMemberContribution(
-        group.id,
-        member.memberId
-      );
+    // 4. Command: #รายชื่อ / #สมาชิก / #ยอดสมาชิก / #ยอดทุกคน / #members
+    else if (
+      command === "#รายชื่อ" ||
+      command === "#สมาชิก" ||
+      command === "#ยอดสมาชิก" ||
+      command === "#ยอดทุกคน" ||
+      command === "#members"
+    ) {
+      const [{ data: members }, { data: allEntries }, summary] = await Promise.all([
+        this.supabase
+          .from("group_members")
+          .select("id, role, status, profiles(id, display_name, picture_url)")
+          .eq("group_id", group.id)
+          .order("joined_at", { ascending: true }),
+        this.supabase
+          .from("ledger_entries")
+          .select("entry_type, amount, member_id")
+          .eq("group_id", group.id),
+        this.ledgerService.getGroupBalanceSummary(group.id),
+      ]);
 
-      return createPersonalBalanceFlexMessage({
-        memberName: member.displayName,
-        personalTotal: contribution.personalTotal,
-        groupTotal: summary.totalBalance,
-        percentageOfPool: contribution.personalSharePercentage,
+      const groupEntries = allEntries || [];
+      const memberList = (members || []).map((m: any) => {
+        const contribution = calculateMemberContribution(groupEntries, m.id);
+        return {
+          displayName: m.profiles?.display_name || "สมาชิก",
+          role: m.role || "member",
+          contributionTotal: contribution.personalTotal,
+          sharePercentage: contribution.personalSharePercentage,
+          status: m.status || "active",
+        };
+      });
+
+      reply = createMemberListFlexMessage({
+        groupName: group.name,
+        members: memberList,
+        totalBalance: summary.totalBalance,
+        liffUrl,
       });
     }
 
-    // 4. Command: #ช่วยเหลือ / #คำสั่ง
-    if (command === "#ช่วยเหลือ" || command === "#คำสั่ง" || command === "#help") {
-      return createHelpFlexMessage(liffUrl);
+    // 5. Command: #ประวัติ / #ประวัติการโอน / #สลิป / #history
+    else if (
+      command === "#ประวัติ" ||
+      command === "#ประวัติการโอน" ||
+      command === "#สลิป" ||
+      command === "#history"
+    ) {
+      const { data: recentDeposits } = await this.supabase
+        .from("deposits")
+        .select("detected_amount, created_at, status, group_members(profiles(display_name))")
+        .eq("group_id", group.id)
+        .eq("status", "verified")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const transactions = (recentDeposits || []).map((d: any) => ({
+        amount: Number(d.detected_amount || 0),
+        depositorName: (d.group_members as any)?.profiles?.display_name || "สมาชิก",
+        createdAt: formatThaiDate(d.created_at),
+      }));
+
+      reply = createTransactionHistoryFlexMessage({
+        groupName: group.name,
+        transactions,
+        liffUrl,
+      });
     }
 
-    // 5. Command: #โอนเงิน / #โอน / #qr
-    if (
+    // 6. Command: #ช่วยเหลือ / #คำสั่ง / #help
+    else if (command === "#ช่วยเหลือ" || command === "#คำสั่ง" || command === "#help") {
+      reply = createHelpFlexMessage(liffUrl);
+    }
+
+    // 7. Command: #โอนเงิน / #โอน / #qr
+    else if (
       command.startsWith("#โอนเงิน") ||
       command.startsWith("#โอน") ||
       command.startsWith("#qr")
@@ -233,7 +311,7 @@ export class CommandHandler {
         }
       }
 
-      return createPromptPayFlexMessage({
+      reply = createPromptPayFlexMessage({
         groupName: group.name,
         amount,
         target,
@@ -245,7 +323,11 @@ export class CommandHandler {
       });
     }
 
-    // Unrecognized # command
-    return null;
+    // Attach Quick Reply action chips to every recognized command response
+    if (reply) {
+      reply.quickReply = getCommonQuickReply();
+    }
+
+    return reply;
   }
 }

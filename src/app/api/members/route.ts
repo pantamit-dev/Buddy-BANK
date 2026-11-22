@@ -5,6 +5,7 @@ import { calculateMemberContribution } from "@/modules/ledger/balance";
 import {
   MemberOnboardSchema,
   MemberStatusUpdateSchema,
+  MemberRoleUpdateSchema,
 } from "@/shared/schemas/member.schema";
 
 const membershipService = new MembershipService();
@@ -88,6 +89,32 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // 1. Check if this is a role update
+    if ("role" in body) {
+      const parsedRole = MemberRoleUpdateSchema.safeParse(body);
+      if (!parsedRole.success) {
+        return NextResponse.json(
+          { error: "Validation failed", details: parsedRole.error.issues },
+          { status: 400 }
+        );
+      }
+
+      const result = await membershipService.updateMemberRole({
+        memberId: parsedRole.data.memberId,
+        role: parsedRole.data.role,
+        actorLineUserId: parsedRole.data.actorLineUserId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        memberId: parsedRole.data.memberId,
+        role: parsedRole.data.role,
+        member: result.member,
+      });
+    }
+
+    // 2. Check if this is a status update
     const parsed = MemberStatusUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -103,6 +130,14 @@ export async function PATCH(req: NextRequest) {
         actorLineUserId: parsed.data.actorLineUserId,
       });
       return NextResponse.json({ success: true, status: "active" });
+    }
+
+    if (parsed.data.status === "suspended") {
+      await membershipService.suspendMember({
+        memberId: parsed.data.memberId,
+        actorLineUserId: parsed.data.actorLineUserId,
+      });
+      return NextResponse.json({ success: true, status: "suspended" });
     }
 
     return NextResponse.json({ error: "Unsupported status update" }, { status: 400 });
