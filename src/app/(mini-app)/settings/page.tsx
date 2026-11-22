@@ -17,7 +17,17 @@ import {
   Sun,
   Moon,
   Laptop,
+  AlertTriangle,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/shared/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
@@ -28,6 +38,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Development Reset Database state
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
+  const [resetDetails, setResetDetails] = useState<any | null>(null);
 
   useEffect(() => {
     async function loadSettings() {
@@ -83,6 +99,36 @@ export default function SettingsPage() {
       alert("ไม่สามารถบันทึกได้: " + String(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    try {
+      setIsResetting(true);
+      setResetSuccessMsg(null);
+      setResetDetails(null);
+
+      const res = await fetch("/api/dev/reset-transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: groupId || undefined,
+          actorLineUserId: profile?.userId || "U000ec61a0cfa63d6b163c764f7793c15",
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        setResetSuccessMsg(json.message || "รีเซ็ตข้อมูลธุรกรรมและสลิปเรียบร้อยแล้ว");
+        setResetDetails(json.details);
+        setConfirmModalOpen(false);
+      } else {
+        alert(json.error || "เกิดข้อผิดพลาดในการรีเซ็ตข้อมูล");
+      }
+    } catch (e) {
+      alert("ไม่สามารถรีเซ็ตได้: " + String(e));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -225,7 +271,62 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* 4. Security & Audit Disclosure */}
+      {/* 4. Owner Development Reset Tools (Danger Zone) */}
+      <Card className="bg-surface border-negative/30 shadow-xs overflow-hidden">
+        <div className="bg-negative/10 px-4 py-2.5 border-b border-negative/20 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-negative font-bold text-xs">
+            <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
+            <span>เครื่องมือผู้พัฒนา (Owner Dev Tools)</span>
+          </div>
+          <Badge
+            variant="outline"
+            className="text-[10px] bg-surface text-negative border-negative/30 font-semibold px-2"
+          >
+            โหมดทดสอบ
+          </Badge>
+        </div>
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <h4 className="text-xs font-bold text-text-primary">
+              รีเซ็ตข้อมูลธุรกรรมและสลิป (Reset Transaction Data)
+            </h4>
+            <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+              ล้างข้อมูลการฝาก สลิป รายการตรวจสอบ และประวัติบัญชีกองกลางทั้งหมดใน Supabase
+              เพื่อเริ่มต้นทดสอบระบบใหม่ โดย<strong>คงข้อมูลสมาชิก (Profiles)</strong> และ
+              <strong>การตั้งค่ากลุ่ม (Settings)</strong> ไว้ครบถ้วน
+            </p>
+          </div>
+
+          {resetSuccessMsg && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-positive/10 text-positive text-xs border border-positive/20">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-bold">{resetSuccessMsg}</span>
+                {resetDetails && (
+                  <p className="text-[10.5px] opacity-90">
+                    ลบสลิป: {resetDetails.deleted_deposits || 0} รายการ | ธุรกรรม:{" "}
+                    {resetDetails.deleted_transactions || 0} รายการ | บัญชี:{" "}
+                    {resetDetails.deleted_ledger || 0} รายการ
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmModalOpen(true)}
+            disabled={isResetting}
+            className="w-full border-negative/40 text-negative hover:bg-negative/10 hover:text-negative hover:border-negative text-xs h-11 rounded-xl gap-2 font-bold transition-all shadow-xs"
+          >
+            <RotateCcw className={cn("w-4 h-4", isResetting && "animate-spin")} />
+            {isResetting ? "กำลังรีเซ็ตฐานข้อมูล..." : "ล้างข้อมูลการฝาก & เริ่มทดสอบใหม่"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 5. Security & Audit Disclosure */}
       <Card className="bg-brand-soft/30 border-brand/15 shadow-xs">
         <CardContent className="p-4 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-warning shrink-0 mt-0.5" />
@@ -240,6 +341,73 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Confirmation Modal for Resetting Database */}
+      <Dialog open={confirmModalOpen} onOpenChange={setConfirmModalOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-negative/10 text-negative flex items-center justify-center mx-auto mb-2">
+              <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <DialogTitle className="text-center text-sm">ยืนยันการรีเซ็ตข้อมูลธุรกรรม?</DialogTitle>
+            <DialogDescription className="text-center text-xs">
+              การดำเนินการนี้จะล้างข้อมูลเพื่อเริ่มทดสอบใหม่ใน Supabase
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2.5 text-xs py-2 bg-brand-soft/30 p-3 rounded-2xl border border-border">
+            <div className="font-bold text-text-primary text-[11.5px] mb-1">
+              📋 รายละเอียดการดำเนินการ:
+            </div>
+            <div className="flex items-center gap-2 text-negative">
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>ล้างสลิปการฝากและรายการรอตรวจสอบทั้งหมด</span>
+            </div>
+            <div className="flex items-center gap-2 text-negative">
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>ล้างประวัติธุรกรรมและบัญชีแยกประเภท</span>
+            </div>
+            <div className="flex items-center gap-2 text-positive font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>คงข้อมูลสมาชิกและบทบาท (Profiles, Roles) ไว้ตามเดิม</span>
+            </div>
+            <div className="flex items-center gap-2 text-positive font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>คงข้อมูลชื่อกลุ่มและเป้าหมาย (Settings) ไว้ตามเดิม</span>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isResetting}
+              onClick={() => setConfirmModalOpen(false)}
+              className="flex-1 rounded-xl text-xs h-10"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              disabled={isResetting}
+              onClick={handleResetDatabase}
+              className="flex-1 bg-negative hover:bg-negative/90 text-white rounded-xl text-xs h-10 font-bold gap-1.5"
+            >
+              {isResetting ? (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                  <span>กำลังล้างข้อมูล...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>ยืนยันล้างข้อมูล</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
