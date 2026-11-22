@@ -4,6 +4,7 @@ import {
   createDepositApprovedFlexMessage,
   createWelcomeFlexMessage,
   createNewMemberWelcomeFlexMessage,
+  createPromptPayFlexMessage,
 } from "@/modules/line-webhook/flex-templates";
 
 describe("Flex Templates Unit Tests", () => {
@@ -153,6 +154,30 @@ describe("Flex Templates Unit Tests", () => {
 
       expect(reviewerItem).toBeDefined();
       expect(reviewerItem.text).toBe("บันทึกโดย: เหรัญญิก");
+    });
+  });
+
+  describe("createPromptPayFlexMessage", () => {
+    it("renders PromptPay transfer card with amount and deep link actions", () => {
+      const flex = createPromptPayFlexMessage({
+        groupName: "ทริปญี่ปุ่น 2027",
+        amount: 300,
+        target: "081-234-5678",
+        accountName: "กองกลาง ทริปญี่ปุ่น",
+        bankName: "กสิกรไทย",
+        bankAccountNo: "123-4-56789-0",
+        liffUrl: "https://liff.line.me/app-123",
+        qrImageUrl: "https://example.com/api/promptpay/generate?format=image",
+      });
+
+      expect(flex.type).toBe("flex");
+      expect(flex.altText).toContain("300.00 บาท");
+      const bubble = flex.contents as any;
+      expect(bubble.header.contents[0].text).toContain("โอนเงินเข้ากองกลาง");
+      expect(bubble.hero.url).toContain("promptpay/generate");
+      expect(JSON.stringify(bubble.body)).toContain("081-234-5678");
+      expect(JSON.stringify(bubble.body)).toContain("123-4-56789-0");
+      expect(bubble.footer.contents[0].action.uri).toContain("action=transfer&amount=300");
     });
   });
 });

@@ -157,6 +157,24 @@ describe("Chat Command Router Unit Tests", () => {
     expect(result?.altText).toContain("คุณยังไม่ได้เป็นสมาชิก");
   });
 
+  it("handles '#โอนเงิน' and '#qr' commands with and without amount", async () => {
+    const noAmountResult = await commandHandler.handleCommand({
+      text: "#โอนเงิน",
+      lineGroupId: "group_123",
+    });
+    expect(noAmountResult).not.toBeNull();
+    expect(noAmountResult?.type).toBe("flex");
+    expect(noAmountResult?.altText).toContain("โอนเงินเข้ากองกลาง");
+
+    const withAmountResult = await commandHandler.handleCommand({
+      text: "#qr 300",
+      lineGroupId: "group_123",
+    });
+    expect(withAmountResult).not.toBeNull();
+    expect(withAmountResult?.type).toBe("flex");
+    expect(withAmountResult?.altText).toContain("300.00");
+  });
+
   it("ignores unknown hash commands silently (e.g. #random_tag)", async () => {
     const result = await commandHandler.handleCommand({
       text: "#ร้านอาหารแนะนำ",

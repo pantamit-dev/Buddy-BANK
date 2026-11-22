@@ -984,6 +984,12 @@ export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage
             size: "xs",
             color: "#475569",
           },
+          {
+            type: "text",
+            text: "• #โอนเงิน [ยอด] หรือ #qr : ขอ QR Code พร้อมยอดโอน & เปิดแอปธนาคาร",
+            size: "xs",
+            color: "#475569",
+          },
         ],
       },
       footer: {
@@ -1072,5 +1078,228 @@ export function createMembershipRequiredFlexMessage(
         ],
       },
     },
+  };
+}
+
+/**
+ * Creates PromptPay QR & Transfer Flex Message for `#โอนเงิน` or `#qr`
+ */
+export function createPromptPayFlexMessage(params: {
+  groupName: string;
+  amount?: number | null;
+  target: string;
+  accountName: string;
+  bankName: string;
+  bankAccountNo: string;
+  liffUrl: string;
+  qrImageUrl?: string;
+}): messagingApi.FlexMessage {
+  const {
+    groupName,
+    amount,
+    target,
+    accountName,
+    bankName,
+    bankAccountNo,
+    liffUrl,
+    qrImageUrl,
+  } = params;
+
+  const hasAmount = typeof amount === "number" && amount > 0;
+  const amountDisplay = hasAmount ? formatCurrency(amount) : "ตามความประสงค์";
+  const altText = hasAmount
+    ? `💸 โอนเงินเข้ากองกลาง ${formatCurrency(amount)} (PromptPay / บัญชี)`
+    : "💸 โอนเงินเข้ากองกลาง (PromptPay / บัญชี)";
+
+  const bubbleContents: messagingApi.FlexBubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#059669",
+      paddingAll: "16px",
+      contents: [
+        {
+          type: "text",
+          text: "💸 โอนเงินเข้ากองกลาง",
+          weight: "bold",
+          color: "#ffffff",
+          size: "lg",
+        },
+        {
+          type: "text",
+          text: groupName,
+          color: "#d1fae5",
+          size: "xs",
+          margin: "xs",
+        },
+      ],
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "18px",
+      contents: [
+        // Amount Banner
+        {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: "#f0fdf4",
+          borderColor: "#bbf7d0",
+          borderWidth: "1px",
+          cornerRadius: "12px",
+          paddingAll: "12px",
+          alignItems: "center",
+          contents: [
+            {
+              type: "text",
+              text: "ยอดเงินที่ต้องโอน",
+              size: "xxs",
+              color: "#166534",
+              weight: "bold",
+            },
+            {
+              type: "text",
+              text: amountDisplay,
+              size: "xl",
+              weight: "bold",
+              color: "#059669",
+              margin: "xs",
+            },
+            {
+              type: "text",
+              text: hasAmount
+                ? "✨ สแกน QR แล้วยอดเงินจะขึ้นอัตโนมัติ"
+                : "ระบุยอดเงินที่ต้องการฝากในแอปธนาคาร",
+              size: "xxs",
+              color: "#4ade80",
+              margin: "xs",
+            },
+          ],
+        },
+        // Account Details Box
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "พร้อมเพย์:", size: "xs", color: "#64748b", flex: 3 },
+                {
+                  type: "text",
+                  text: target,
+                  size: "xs",
+                  weight: "bold",
+                  color: "#0f172a",
+                  flex: 5,
+                  align: "end",
+                },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "ชื่อบัญชี:", size: "xs", color: "#64748b", flex: 3 },
+                {
+                  type: "text",
+                  text: accountName,
+                  size: "xs",
+                  weight: "bold",
+                  color: "#0f172a",
+                  flex: 5,
+                  align: "end",
+                },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "ธนาคาร:", size: "xs", color: "#64748b", flex: 3 },
+                {
+                  type: "text",
+                  text: bankName,
+                  size: "xs",
+                  weight: "bold",
+                  color: "#0f172a",
+                  flex: 5,
+                  align: "end",
+                },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "เลขที่บัญชี:", size: "xs", color: "#64748b", flex: 3 },
+                {
+                  type: "text",
+                  text: bankAccountNo,
+                  size: "xs",
+                  weight: "bold",
+                  color: "#0f172a",
+                  flex: 5,
+                  align: "end",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "separator",
+          color: "#e2e8f0",
+        },
+        {
+          type: "text",
+          text: "💡 โอนเสร็จแล้ว ส่งรูปสลิปลงในแชทนี้ ระบบจะบันทึกยอดเงินเข้ากองกลางทันที",
+          size: "xxs",
+          color: "#64748b",
+          wrap: true,
+        },
+      ],
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "16px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#059669",
+          height: "sm",
+          action: {
+            type: "uri",
+            label: "🚀 เปิดโอนเงิน & เปิดแอปธนาคาร",
+            uri: `${liffUrl}?action=transfer${hasAmount ? `&amount=${amount}` : ""}`,
+          },
+        },
+      ],
+    },
+  };
+
+  // If public QR image is available, add hero image
+  if (qrImageUrl) {
+    bubbleContents.hero = {
+      type: "image",
+      url: qrImageUrl,
+      size: "full",
+      aspectRatio: "1:1",
+      aspectMode: "fit",
+      backgroundColor: "#ffffff",
+    };
+  }
+
+  return {
+    type: "flex",
+    altText,
+    contents: bubbleContents,
   };
 }

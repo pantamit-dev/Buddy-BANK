@@ -29,8 +29,15 @@ import {
   X,
   CreditCard,
   QrCode,
+  Copy,
+  Check,
+  Download,
+  ExternalLink,
+  Smartphone,
+  RefreshCw,
 } from "lucide-react";
 import { overviewCache, CACHE_TTL_MS } from "@/shared/lib/overview-cache";
+import { THAI_BANKS, openBankApp, BankInfo } from "@/lib/bank-deeplinks";
 
 export default function OverviewPage() {
   const { groupId, profile } = useLiff();
@@ -48,6 +55,92 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(!isCacheFresh);
   const [showBalance, setShowBalance] = useState(true);
   const [activeModal, setActiveModal] = useState<"transfer" | "topup" | "bill" | null>(null);
+
+  // Transfer & PromptPay Modal States
+  const [transferAmount, setTransferAmount] = useState<number>(300);
+  const [customAmountInput, setCustomAmountInput] = useState<string>("300");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrLoading, setQrLoading] = useState<boolean>(false);
+  const [promptPayTarget, setPromptPayTarget] = useState<string>("081-234-5678");
+  const [bankAccountNo, setBankAccountNo] = useState<string>("123-4-56789-0");
+  const [bankName, setBankName] = useState<string>("กสิกรไทย (KBANK)");
+  const [accountName, setAccountName] = useState<string>("กองกลาง Bank Buddy");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [bankLaunchToast, setBankLaunchToast] = useState<string | null>(null);
+
+  // Auto-open modal if URL has ?action=transfer
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("action") === "transfer") {
+        setActiveModal("transfer");
+        const amt = params.get("amount");
+        if (amt && !isNaN(parseFloat(amt))) {
+          const num = parseFloat(amt);
+          setTransferAmount(num);
+          setCustomAmountInput(num.toString());
+        }
+      }
+    }
+  }, []);
+
+  // Fetch or update PromptPay QR code when transfer modal is active or amount changes
+  useEffect(() => {
+    if (activeModal === "transfer") {
+      let isSubscribed = true;
+      setQrLoading(true);
+      fetch(
+        `/api/promptpay/generate?groupId=${groupId || ""}&amount=${transferAmount || 0}`
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          if (isSubscribed && json.success) {
+            setQrDataUrl(json.qrDataUrl);
+            if (json.target) setPromptPayTarget(json.target);
+            if (json.bankAccountNo) setBankAccountNo(json.bankAccountNo);
+            if (json.bankName) setBankName(json.bankName);
+            if (json.accountName) setAccountName(json.accountName);
+          }
+        })
+        .catch((err) => console.error("Failed to generate QR:", err))
+        .finally(() => {
+          if (isSubscribed) setQrLoading(false);
+        });
+
+      return () => {
+        isSubscribed = false;
+      };
+    }
+  }, [activeModal, transferAmount, groupId]);
+
+  const handleCopy = (text: string, field: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrDataUrl) return;
+    const link = document.createElement("a");
+    link.href = qrDataUrl;
+    link.download = `bankbuddy-promptpay-${transferAmount || "custom"}thb.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleLaunchBank = (bank: BankInfo) => {
+    const copyText = `${bankAccountNo} (ยอด ${transferAmount} บาท)`;
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(copyText);
+    }
+    setBankLaunchToast(`คัดลอกเลขบัญชีแล้ว กำลังเปิดแอป ${bank.name}...`);
+    setTimeout(() => setBankLaunchToast(null), 3000);
+
+    openBankApp(bank);
+  };
 
   useEffect(() => {
     async function loadOverview() {
@@ -423,36 +516,256 @@ export default function OverviewPage() {
 
       {/* 6. Quick Action Modals for Transfer / Topup / Bill */}
       {activeModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-surface rounded-t-3xl sm:rounded-2xl w-full max-w-sm border border-border p-5 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-surface rounded-t-3xl sm:rounded-3xl w-full max-w-md border border-border p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 {activeModal === "transfer" && <Send className="w-4 h-4 text-brand" />}
                 {activeModal === "topup" && <PlusCircle className="w-4 h-4 text-brand" />}
                 {activeModal === "bill" && <ReceiptText className="w-4 h-4 text-brand" />}
-                <h3 className="text-sm font-bold text-text-primary">
-                  {activeModal === "transfer" && "โอนเงินเข้ากองกลาง"}
-                  {activeModal === "topup" && "เติมเงิน / ฝากเงิน"}
-                  {activeModal === "bill" && "เบิกจ่าย / ชำระบิล"}
-                </h3>
+                <div>
+                  <h3 className="text-sm font-bold text-text-primary">
+                    {activeModal === "transfer" && "โอนเงินเข้ากองกลาง (PromptPay)"}
+                    {activeModal === "topup" && "เติมเงิน / ฝากเงิน"}
+                    {activeModal === "bill" && "เบิกจ่าย / ชำระบิล"}
+                  </h3>
+                  {activeModal === "transfer" && (
+                    <p className="text-[10px] text-text-secondary">
+                      สแกน QR Code หรือเลือกเปิดแอปธนาคารเพื่อโอน
+                    </p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-brand-soft/40 text-text-secondary"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-brand-soft/40 text-text-secondary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-text-secondary">
+            {/* Launch feedback toast */}
+            {bankLaunchToast && (
+              <div className="p-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center gap-2 shadow-xs animate-in slide-in-from-top duration-200">
+                <Sparkles className="w-4 h-4 shrink-0 animate-spin" />
+                <span className="flex-1">{bankLaunchToast}</span>
+              </div>
+            )}
+
+            <div className="space-y-4 text-xs text-text-secondary">
               {activeModal === "transfer" && (
                 <>
-                  <p>
-                    ท่านสามารถโอนเงินผ่าน Mobile Banking แล้วส่งรูปสลิปเข้ามาใน LINE Bot
-                    ระบบ OCR และ AI จะตรวจจับยอดเงินและบันทึกลงกองกลางโดยอัตโนมัติ
-                  </p>
+                  {/* Amount Selector */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-primary">
+                        เลือกจำนวนเงินที่ต้องการโอน:
+                      </span>
+                      <span className="text-[11px] font-semibold text-brand">
+                        {transferAmount > 0 ? formatCurrency(transferAmount) : "กำหนดเอง"}
+                      </span>
+                    </div>
+
+                    {/* Preset Amount Pills */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {[100, 300, 500, 1000].map((amt) => {
+                        const isSelected = transferAmount === amt;
+                        return (
+                          <button
+                            key={amt}
+                            onClick={() => {
+                              setTransferAmount(amt);
+                              setCustomAmountInput(amt.toString());
+                            }}
+                            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                              isSelected
+                                ? "bg-brand text-white border-brand shadow-xs"
+                                : "bg-surface hover:bg-brand-soft/40 border-border text-text-primary"
+                            }`}
+                          >
+                            {amt.toLocaleString()} ฿
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Amount Input */}
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={customAmountInput}
+                        onChange={(e) => {
+                          setCustomAmountInput(e.target.value);
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val > 0) {
+                            setTransferAmount(val);
+                          } else if (e.target.value === "") {
+                            setTransferAmount(0);
+                          }
+                        }}
+                        placeholder="ระบุจำนวนเงินเอง (เช่น 250)"
+                        className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand pr-12 font-medium"
+                      />
+                      <span className="absolute right-3 text-xs font-bold text-text-secondary pointer-events-none">
+                        บาท
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dynamic PromptPay QR Code Display */}
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-border text-center space-y-2.5 shadow-xs">
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-brand-strong">
+                      <QrCode className="w-3.5 h-3.5 text-brand" />
+                      <span>PromptPay QR Code (ระบุยอดเงินอัตโนมัติ)</span>
+                    </div>
+
+                    <div className="relative w-48 h-48 mx-auto bg-white p-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner flex items-center justify-center">
+                      {qrLoading ? (
+                        <div className="flex flex-col items-center gap-2 text-text-secondary">
+                          <RefreshCw className="w-6 h-6 animate-spin text-brand" />
+                          <span className="text-[10px]">กำลังสร้าง QR Code...</span>
+                        </div>
+                      ) : qrDataUrl ? (
+                        <img
+                          src={qrDataUrl}
+                          alt="PromptPay QR Code"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs text-text-secondary">ไม่สามารถสร้าง QR ได้</span>
+                      )}
+                    </div>
+
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-2 text-center">
+                      <p className="text-[10.5px] font-bold text-emerald-800 dark:text-emerald-300">
+                        {transferAmount > 0
+                          ? `ยอดเงินโอน: ${formatCurrency(transferAmount)} (ล็อกยอดใน QR)`
+                          : "สแกนแล้วระบุยอดเงินที่ต้องการโอนได้เลย"}
+                      </p>
+                      <p className="text-[9.5px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        แอปธนาคารจะใส่ยอดเงินนี้ให้โดยอัตโนมัติ
+                      </p>
+                    </div>
+
+                    {/* Download QR Button */}
+                    <button
+                      onClick={handleDownloadQr}
+                      disabled={!qrDataUrl || qrLoading}
+                      className="w-full py-2 px-3 rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      บันทึกรูป QR ลงเครื่อง (ไว้เปิดสแกนในแอป)
+                    </button>
+                  </div>
+
+                  {/* Group Account Details Card */}
+                  <div className="p-3 rounded-2xl bg-brand-soft/40 border border-border space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-text-primary pb-1 border-b border-border/50">
+                      <span>ข้อมูลบัญชีกองกลาง</span>
+                      <span className="text-[10px] text-text-secondary font-normal">
+                        {accountName}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-[11px]">
+                      {/* PromptPay Row */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">พร้อมเพย์:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-text-primary">
+                            {promptPayTarget}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(promptPayTarget, "promptpay")}
+                            className="p-1 rounded hover:bg-brand-soft text-text-secondary hover:text-brand transition-colors"
+                            title="คัดลอกเบอร์พร้อมเพย์"
+                          >
+                            {copiedField === "promptpay" ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bank Account Row */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">{bankName}:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-text-primary">
+                            {bankAccountNo}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(bankAccountNo, "bankAccount")}
+                            className="p-1 rounded hover:bg-brand-soft text-text-secondary hover:text-brand transition-colors"
+                            title="คัดลอกเลขบัญชี"
+                          >
+                            {copiedField === "bankAccount" ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Direct Launch Banking Apps */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5 text-brand" />
+                        <span className="text-xs font-bold text-text-primary">
+                          แตะเปิดแอปธนาคารของคุณ
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-text-secondary">
+                        (คัดลอกเลขบัญชีให้อัตโนมัติ)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {THAI_BANKS.map((bank) => (
+                        <button
+                          key={bank.id}
+                          onClick={() => handleLaunchBank(bank)}
+                          className="flex flex-col items-center justify-center p-2 rounded-xl bg-surface border border-border hover:border-brand/40 hover:bg-brand-soft/30 active:scale-95 transition-all group shadow-2xs"
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-xl ${bank.iconBg} flex items-center justify-center text-white font-extrabold text-[11px] mb-1 group-hover:scale-105 transition-transform shadow-xs`}
+                            style={{ backgroundColor: bank.brandColor }}
+                          >
+                            {bank.shortName.substring(0, 3)}
+                          </div>
+                          <span className="text-[10px] font-bold text-text-primary truncate w-full text-center">
+                            {bank.name}
+                          </span>
+                          <span className="text-[9px] text-text-secondary truncate w-full text-center">
+                            {bank.thaiName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Instruction Footer */}
+                  <div className="p-3 rounded-xl bg-surface border border-border space-y-1">
+                    <p className="font-bold text-text-primary text-[10.5px]">
+                      ขั้นตอนหลังจากโอนเงิน:
+                    </p>
+                    <p className="text-[10px] text-text-secondary leading-relaxed">
+                      1. ถ่ายรูปหรือบันทึกภาพสลิปจากแอปธนาคาร<br />
+                      2. ส่งรูปสลิปลงในแชทกลุ่ม LINE นี้<br />
+                      3. ระบบ OCR จะอ่านยอดเงินและบันทึกเข้ากองกลางโดยอัตโนมัติ
+                    </p>
+                  </div>
+
                   <Link href="/review" onClick={() => setActiveModal(null)}>
-                    <Button className="w-full bg-brand text-white hover:bg-brand-strong rounded-xl text-xs h-9 font-semibold mt-2">
+                    <Button className="w-full bg-brand-soft text-brand-strong hover:bg-brand-soft/80 border border-brand/20 rounded-xl text-xs h-9 font-semibold">
                       ไปยังหน้าตรวจสลิปค้าง
                     </Button>
                   </Link>
@@ -461,16 +774,18 @@ export default function OverviewPage() {
 
               {activeModal === "topup" && (
                 <>
-                  <div className="p-3 rounded-xl bg-brand-soft/50 border border-brand/20 space-y-1 text-center">
+                  <div className="p-4 rounded-xl bg-brand-soft/50 border border-brand/20 space-y-2 text-center">
                     <QrCode className="w-10 h-10 mx-auto text-brand mb-1" />
                     <p className="font-bold text-brand-strong">โอนผ่าน PromptPay หรือเลขบัญชีกองกลาง</p>
-                    <p className="text-[11px]">สแกนหรือโอนแล้วส่งรูปสลิปในแชตกลุ่มเพื่อยืนยัน</p>
+                    <p className="text-[11px]">
+                      สแกน QR หรือโอนผ่านเลขบัญชีของกลุ่ม แล้วส่งรูปสลิปในแชตกลุ่มเพื่อยืนยัน
+                    </p>
                   </div>
                   <Button
-                    onClick={() => setActiveModal(null)}
+                    onClick={() => setActiveModal("transfer")}
                     className="w-full bg-brand text-white hover:bg-brand-strong rounded-xl text-xs h-9 font-semibold"
                   >
-                    ปิดหน้าต่าง
+                    เปิดหน้าสแกน QR & บัญชี
                   </Button>
                 </>
               )}

@@ -4,6 +4,7 @@ import {
   createGroupBalanceFlexMessage,
   createPersonalBalanceFlexMessage,
   createHelpFlexMessage,
+  createPromptPayFlexMessage,
 } from "@/modules/line-webhook/flex-templates";
 import { createAdminClient } from "@/integrations/supabase/server";
 import type { messagingApi } from "@line/bot-sdk";
@@ -150,6 +151,56 @@ export class CommandHandler {
     // 4. Command: #ช่วยเหลือ / #คำสั่ง
     if (command === "#ช่วยเหลือ" || command === "#คำสั่ง" || command === "#help") {
       return createHelpFlexMessage(liffUrl);
+    }
+
+    // 5. Command: #โอนเงิน / #โอน / #qr
+    if (
+      command.startsWith("#โอนเงิน") ||
+      command.startsWith("#โอน") ||
+      command.startsWith("#qr")
+    ) {
+      // Parse optional amount: e.g. #โอนเงิน 300 or #qr 500
+      const parts = trimmed.split(/\s+/);
+      let amount: number | null = null;
+      if (parts.length > 1) {
+        const parsed = parseFloat(parts[1].replace(/,/g, ""));
+        if (!isNaN(parsed) && parsed > 0) {
+          amount = parsed;
+        }
+      }
+
+      // Fetch group rules / settings if available
+      const { data: groupWithSettings } = await this.supabase
+        .from("groups")
+        .select("name, group_settings(rules)")
+        .eq("id", group.id)
+        .maybeSingle();
+
+      const rules = (groupWithSettings?.group_settings as any)?.rules;
+      const target = rules?.promptpay_id || "081-234-5678";
+      const bankAccountNo = rules?.bank_account_no || "123-4-56789-0";
+      const bankName = rules?.bank_name || "กสิกรไทย (KBANK)";
+      const accountName = rules?.account_name || group.name;
+
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+      const qrImageUrl = appUrl
+        ? `${appUrl}/api/promptpay/generate?groupId=${group.id}&format=image${
+            amount ? `&amount=${amount}` : ""
+          }`
+        : undefined;
+
+      return createPromptPayFlexMessage({
+        groupName: group.name,
+        amount,
+        target,
+        accountName,
+        bankName,
+        bankAccountNo,
+        liffUrl,
+        qrImageUrl,
+      });
     }
 
     // Unrecognized # command
