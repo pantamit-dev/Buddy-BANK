@@ -471,33 +471,63 @@ export class LineEventRouter {
       }
 
       const withdrawalService = new WithdrawalService(this.supabase);
-      const voteResult = await withdrawalService.voteWithdrawal({
-        withdrawalId,
-        voterMemberId: voterMember.memberId,
-        choice,
-      });
+      try {
+        const voteResult = await withdrawalService.voteWithdrawal({
+          withdrawalId,
+          voterMemberId: voterMember.memberId,
+          choice,
+        });
 
-      if (replyToken) {
-        if (voteResult.status === "approved" || voteResult.status === "rejected") {
-          const resultFlex = createWithdrawalResultFlexMessage({
-            amount: Number(withdrawal.amount),
-            purpose: withdrawal.purpose,
-            status: voteResult.status,
-            approveVotes: voteResult.approveVotes,
-            rejectVotes: voteResult.rejectVotes,
-          });
-          await this.lineClient.replyMessage(replyToken, [resultFlex]);
-        } else {
+        if (replyToken) {
+          if (voteResult.status === "approved" || voteResult.status === "rejected") {
+            let newBalance: number | undefined;
+            if (voteResult.status === "approved") {
+              try {
+                const { data: lastLedger } = await this.supabase
+                  .from("ledger_entries")
+                  .select("running_balance")
+                  .eq("group_id", withdrawal.group_id)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (lastLedger?.running_balance !== undefined) {
+                  newBalance = Number(lastLedger.running_balance);
+                }
+              } catch {
+                // ignore optional balance lookup failure
+              }
+            }
+            const resultFlex = createWithdrawalResultFlexMessage({
+              amount: Number(withdrawal.amount),
+              purpose: withdrawal.purpose,
+              status: voteResult.status,
+              approveVotes: voteResult.approveVotes,
+              rejectVotes: voteResult.rejectVotes,
+              newBalance,
+            });
+            await this.lineClient.replyMessage(replyToken, [resultFlex]);
+          } else {
+            await this.lineClient.replyMessage(replyToken, [
+              {
+                type: "text",
+                text: `🗳️ บันทึกเสียงของคุณ (${choice === "approve" ? "เห็นชอบ" : "คัดค้าน"}) เรียบร้อยแล้ว!\nปัจจุบันเห็นชอบ ${voteResult.approveVotes}/${voteResult.requiredApprovals} เสียงที่ต้องการ`,
+              },
+            ]);
+          }
+        }
+
+        return { success: true, voteResult };
+      } catch (voteErr: any) {
+        if (replyToken) {
           await this.lineClient.replyMessage(replyToken, [
             {
               type: "text",
-              text: `🗳️ บันทึกเสียงของคุณ (${choice === "approve" ? "เห็นชอบ" : "คัดค้าน"}) เรียบร้อยแล้ว!\nปัจจุบันเห็นชอบ ${voteResult.approveVotes}/${voteResult.requiredApprovals} เสียงที่ต้องการ`,
+              text: `ℹ️ ไม่สามารถลงคะแนนได้: ${voteErr?.message || "รายการนี้ปิดโหวตไปแล้วหรือหมดเวลาลงคะแนน"}`,
             },
           ]);
         }
+        return { success: false, reason: voteErr?.message || "VOTE_FAILED" };
       }
-
-      return { success: true, voteResult };
     }
 
     // B. Handle Deposit Review (Approve / Reject)

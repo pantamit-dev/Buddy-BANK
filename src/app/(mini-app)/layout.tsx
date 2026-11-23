@@ -209,7 +209,9 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         <div className="grid grid-cols-4 h-16">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              (item.href === "/review" && pathname === "/withdrawals");
             return (
               <Link
                 key={item.href}

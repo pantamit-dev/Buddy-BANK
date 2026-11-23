@@ -1,5 +1,7 @@
 import { LedgerService } from "@/modules/ledger/service";
 import { MembershipService } from "@/modules/membership/service";
+import { WithdrawalService } from "@/modules/withdrawals/service";
+import { createWithdrawalVotingFlexMessage } from "@/modules/withdrawals/flex-templates";
 import { calculateMemberContribution } from "@/modules/ledger/balance";
 import { formatThaiDate } from "@/lib/utils";
 import {
@@ -321,6 +323,182 @@ export class CommandHandler {
         liffUrl,
         qrImageUrl,
       });
+    }
+
+    // 8. Command: #เบิก / #ถอน / #withdraw <amount> <purpose>
+    else if (
+      command === "#เบิก" ||
+      command.startsWith("#เบิก ") ||
+      command === "#เบิกเงิน" ||
+      command.startsWith("#เบิกเงิน ") ||
+      command === "#ถอน" ||
+      command.startsWith("#ถอน ") ||
+      command === "#ถอนเงิน" ||
+      command.startsWith("#ถอนเงิน ") ||
+      command === "#withdraw" ||
+      command.startsWith("#withdraw ")
+    ) {
+      const match = trimmed.match(/^#(?:เบิกเงิน|เบิก|ถอนเงิน|ถอน|withdraw)\s+([\d,]+(?:\.\d{1,2})?)\s+(.+)$/i);
+
+      if (!match) {
+        reply = {
+          type: "flex",
+          altText: "วิธีใช้คำสั่งเบิกเงินกองกลาง (#เบิก)",
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              contents: [
+                {
+                  type: "text",
+                  text: "🗳️ เสนอเบิกเงิน / ลงมติกองกลาง",
+                  weight: "bold",
+                  color: "#0F172A",
+                  size: "md",
+                },
+                {
+                  type: "text",
+                  text: "พิมพ์คำสั่งตามรูปแบบ:\n#เบิก [จำนวนเงิน] [วัตถุประสงค์]\nตัวอย่าง: #เบิก 1500 ค่าที่พักคืนแรก",
+                  size: "xs",
+                  color: "#475569",
+                  wrap: true,
+                },
+              ],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "button",
+                  style: "primary",
+                  color: "#087963",
+                  action: {
+                    type: "uri",
+                    label: "📱 เปิดหน้าเบิกเงิน & โหวต",
+                    uri: `${liffUrl}?groupId=${group.id}`,
+                  },
+                },
+              ],
+            },
+          },
+        };
+      } else if (!lineUserId) {
+        return null;
+      } else {
+        const amount = parseFloat(match[1].replace(/,/g, ""));
+        const purpose = match[2].trim();
+        const member = await this.membershipService.getMemberByLineUserId(
+          group.id,
+          lineUserId
+        );
+
+        if (!member || member.status !== "active") {
+          reply = {
+            type: "flex",
+            altText: "เฉพาะสมาชิกที่ได้รับการอนุมัติเท่านั้นที่สามารถขอเบิกเงินได้",
+            contents: {
+              type: "bubble",
+              body: {
+                type: "box",
+                layout: "vertical",
+                spacing: "sm",
+                contents: [
+                  {
+                    type: "text",
+                    text: "⚠️ ไม่มีสิทธิ์เสนอเบิกเงิน",
+                    weight: "bold",
+                    color: "#d97706",
+                    size: "md",
+                  },
+                  {
+                    type: "text",
+                    text: "เฉพาะสมาชิกที่ได้รับการอนุมัติในกลุ่มเท่านั้นที่สามารถเสนอขอเบิกเงินได้",
+                    size: "xs",
+                    color: "#475569",
+                    wrap: true,
+                  },
+                ],
+              },
+            },
+          };
+        } else {
+          try {
+            const withdrawalService = new WithdrawalService(this.supabase);
+            const withdrawal = await withdrawalService.createWithdrawalRequest({
+              groupId: group.id,
+              requestedByMemberId: member.memberId,
+              amount,
+              purpose,
+            });
+
+            const [{ data: settings }, { count: activeCount }] = await Promise.all([
+              this.supabase
+                .from("group_settings")
+                .select("voting_quorum_percent")
+                .eq("group_id", group.id)
+                .maybeSingle(),
+              this.supabase
+                .from("group_members")
+                .select("id", { count: "exact", head: true })
+                .eq("group_id", group.id)
+                .eq("status", "active"),
+            ]);
+
+            const quorumPercent = Number(settings?.voting_quorum_percent || 50);
+            const totalMembers = activeCount || 1;
+            const requiredApprovals = Math.max(
+              1,
+              Math.ceil((totalMembers * quorumPercent) / 100)
+            );
+
+            reply = createWithdrawalVotingFlexMessage({
+              withdrawalId: withdrawal.id,
+              amount: Number(withdrawal.amount),
+              purpose: withdrawal.purpose,
+              requesterName: member.displayName || "สมาชิก",
+              approveVotes: 0,
+              rejectVotes: 0,
+              requiredApprovals,
+              expiresAt: withdrawal.expires_at,
+            });
+          } catch (err: any) {
+            const errMsg = err?.message || "ไม่สามารถสร้างคำขอเบิกเงินได้";
+            reply = {
+              type: "flex",
+              altText: "ไม่สามารถสร้างคำขอเบิกเงินได้",
+              contents: {
+                type: "bubble",
+                body: {
+                  type: "box",
+                  layout: "vertical",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "⚠️ ไม่สามารถเสนอเบิกเงินได้",
+                      weight: "bold",
+                      color: "#DC2626",
+                      size: "md",
+                    },
+                    {
+                      type: "text",
+                      text: errMsg.includes("INSUFFICIENT_POOL_BALANCE")
+                        ? "ยอดเงินคงเหลือในกองกลางไม่เพียงพอสำหรับคำขอเบิกนี้"
+                        : errMsg,
+                      size: "xs",
+                      color: "#475569",
+                      wrap: true,
+                    },
+                  ],
+                },
+              },
+            };
+          }
+        }
+      }
     }
 
     // Attach Quick Reply action chips to every recognized command response

@@ -1543,6 +1543,26 @@ export function createHelpFlexMessage(liffUrl: string): messagingApi.FlexMessage
             contents: [
               {
                 type: "text",
+                text: "🗳️ #เบิก [ยอด] [วัตถุประสงค์]",
+                weight: "bold",
+                size: "xs",
+                color: "#087963",
+              },
+              {
+                type: "text",
+                text: "เสนอขอเบิกเงินกองกลางพร้อมเปิดโหวตลงมติสมาชิกในแชทกลุ่ม",
+                size: "xxs",
+                color: "#64748b",
+              },
+            ],
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
                 text: "❓ #คำสั่ง หรือ #ช่วยเหลือ",
                 weight: "bold",
                 size: "xs",

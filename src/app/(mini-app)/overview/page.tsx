@@ -914,11 +914,21 @@ export default function OverviewPage() {
                     การเบิกเงินหรือจ่ายบิลออกจากกองกลางจะต้องผ่านกระบวนการเสนอและลงมติ
                     (Voting Quorum) จากสมาชิกในกลุ่มตามกฎที่ตั้งไว้
                   </p>
-                  <Link href="/group-members" onClick={() => setActiveModal(null)}>
-                    <Button className="w-full bg-brand text-white hover:bg-brand-strong rounded-xl text-xs h-9 font-semibold mt-2">
-                      ดูรายชื่อสมาชิก & สิทธิ์การโหวต
-                    </Button>
-                  </Link>
+                  <div className="space-y-2 pt-1">
+                    <Link href="/withdrawals" onClick={() => setActiveModal(null)} className="block">
+                      <Button className="w-full bg-brand text-white hover:bg-brand-strong rounded-xl text-xs h-9 font-semibold">
+                        เปิดหน้าเบิกจ่าย &amp; ลงมติกลุ่ม
+                      </Button>
+                    </Link>
+                    <Link href="/group-members" onClick={() => setActiveModal(null)} className="block">
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-xl text-xs h-9 font-semibold border-border text-text-secondary hover:text-text-primary"
+                      >
+                        ดูรายชื่อสมาชิก &amp; สิทธิ์การโหวต
+                      </Button>
+                    </Link>
+                  </div>
                 </>
               )}
             </div>

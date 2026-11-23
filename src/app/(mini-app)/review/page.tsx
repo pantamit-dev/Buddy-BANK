@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLiff } from "@/shared/context/liff-context";
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   Receipt,
   RotateCcw,
+  Vote,
 } from "lucide-react";
 import { invalidateOverviewCache } from "@/shared/lib/overview-cache";
 
@@ -104,6 +106,21 @@ export default function ReviewPage() {
           <RotateCcw className="w-3.5 h-3.5 mr-1" />
           รีเฟรช
         </Button>
+      </div>
+
+      {/* Activity Switcher: Slip Review vs Withdrawal Voting */}
+      <div className="grid grid-cols-2 gap-1.5 bg-surface p-1 rounded-xl border border-border">
+        <div className="py-1.5 px-3 rounded-lg bg-brand text-white text-xs font-bold text-center shadow-xs flex items-center justify-center gap-1.5">
+          <CheckSquare className="w-3.5 h-3.5" />
+          ตรวจสลิปเงินเข้า
+        </div>
+        <Link
+          href="/withdrawals"
+          className="py-1.5 px-3 rounded-lg text-text-secondary hover:text-text-primary hover:bg-brand-soft/40 text-xs font-bold text-center transition-colors flex items-center justify-center gap-1.5"
+        >
+          <Vote className="w-3.5 h-3.5" />
+          โหวตเบิกเงินออก
+        </Link>
       </div>
 
       {loading ? (
