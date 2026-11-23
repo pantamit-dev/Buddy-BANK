@@ -1064,7 +1064,8 @@ export function createMemberListFlexMessage(params: {
       layout: "horizontal" as const,
       alignItems: "center" as const,
       spacing: "sm" as const,
-      paddingVertical: "4px" as const,
+      paddingTop: "4px" as const,
+      paddingBottom: "4px" as const,
       contents: [
         {
           type: "text" as const,
@@ -1248,7 +1249,8 @@ export function createTransactionHistoryFlexMessage(params: {
           layout: "horizontal" as const,
           alignItems: "center" as const,
           spacing: "sm" as const,
-          paddingVertical: "4px" as const,
+          paddingTop: "4px" as const,
+          paddingBottom: "4px" as const,
           contents: [
             {
               type: "box" as const,
